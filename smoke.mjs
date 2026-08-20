@@ -8,12 +8,8 @@ import { join, extname } from 'node:path';
 const DIST = join(process.cwd(), 'dist');
 const MIME = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml' };
 
-// Mirrors vite.config.ts `base`, so dist's asset URLs resolve here too.
-const BASE = '/loadout-roulette';
-
 const server = createServer(async (req, res) => {
-  let path = (req.url || '/').split('?')[0];
-  if (path === BASE || path.startsWith(BASE + '/')) path = path.slice(BASE.length) || '/';
+  const path = (req.url || '/').split('?')[0];
   let file = join(DIST, path === '/' ? 'index.html' : path);
   try {
     if ((await stat(file)).isDirectory()) file = join(file, 'index.html');
@@ -75,7 +71,7 @@ const poolSize = async (slot) =>
 const TONE = { Easy: 'coin--red', Normal: 'coin--black', Hard: 'coin--green' };
 
 const wonMode = () => page.locator('.legend__item.is-won .legend__name').textContent();
-const paid = async () => (await page.locator('.coinslot__text').textContent())?.trim() === 'Paid';
+const paid = async () => (await page.locator('.coinslot__text').textContent())?.trim() === 'Inserted';
 const modeIndicator = async () =>
   (await page.locator('.machine__mode-value').textContent())?.trim();
 
@@ -172,7 +168,7 @@ check('lever explains why it is inert', (await page.locator('.lever__text').text
 await page.waitForTimeout(700); // let the drop animation settle
 await page.locator('.coin').click();
 await page.waitForFunction(
-  () => document.querySelector('.coinslot__text')?.textContent?.trim() === 'Paid',
+  () => document.querySelector('.coinslot__text')?.textContent?.trim() === 'Inserted',
   { timeout: 5000 },
 );
 check('token accepted', await paid());
@@ -216,7 +212,7 @@ await page.waitForSelector('.coin', { timeout: 8000 });
 await page.waitForTimeout(700);
 await page.locator('.coin').click();
 await page.waitForFunction(
-  () => document.querySelector('.coinslot__text')?.textContent?.trim() === 'Paid',
+  () => document.querySelector('.coinslot__text')?.textContent?.trim() === 'Inserted',
   { timeout: 5000 },
 );
 check('indicator follows the new token', (await modeIndicator()) === 'Easy', await modeIndicator());
@@ -244,7 +240,7 @@ await page.mouse.up();
 // busy WebGL frame can push the insert past any timeout worth hard-coding.
 await page
   .waitForFunction(
-    () => document.querySelector('.coinslot__text')?.textContent?.trim() === 'Paid',
+    () => document.querySelector('.coinslot__text')?.textContent?.trim() === 'Inserted',
     { timeout: 5000 },
   )
   .catch(() => {});
@@ -274,8 +270,9 @@ check('red die matches attachment cap', ATTACH_FACES[pips[1] - 1] === capValues[
 
 /* ------------------------------------------------------------- seeding */
 
-const seedLabel = await page.locator('.hdr__actions .btn').first().textContent();
-const seed = (seedLabel || '').replace('Seed ', '').trim();
+// The header no longer exposes the seed, so pin one explicitly — which is a
+// better test anyway: two loads of a known seed must agree.
+const seed = 'TESTSEED';
 const throwDice = async () => {
   const p = await browser.newPage();
   await p.goto(`http://localhost:4321/?seed=${seed}`, { waitUntil: 'networkidle' });
@@ -298,23 +295,19 @@ const eyebrows = (await page.locator('.secttl__eyebrow').allTextContents()).map(
 check('every section heading has the eyebrow', eyebrows.length >= 4, `${eyebrows.length} found`);
 check('eyebrows all read the same', new Set(eyebrows).size === 1 && eyebrows[0] === 'Delta Force', eyebrows.join('|'));
 
-// Presets sit above the cabinet, not inside Settings.
-const presetBar = page.locator('.presetbar');
-check('preset bar exists above the machine', (await presetBar.count()) === 1);
-check(
-  'preset bar precedes the cabinet',
-  await page.evaluate(() => {
-    const bar = document.querySelector('.presetbar');
-    const cab = document.querySelector('.machine');
-    if (!bar || !cab) return false;
-    return !!(bar.compareDocumentPosition(cab) & Node.DOCUMENT_POSITION_FOLLOWING);
-  }),
-);
+// Presets live only in Settings now.
+check('no preset bar above the cabinet', (await page.locator('.presetbar').count()) === 0);
 
 // The stage line never suggests re-spinning.
 check(
   'removed the spin-again wording',
   !(await page.locator('body').textContent()).includes('Spin again for a new run'),
+);
+
+// Footer no longer points at a source file.
+check(
+  'footer drops the source-file note',
+  !(await page.locator('.ftr').textContent()).includes('deltaforce.ts'),
 );
 
 // Nudge arrows are permanent now, not a toggle.
@@ -332,11 +325,21 @@ const panelText = await page.locator('.panel__body').textContent();
 for (const gone of ['Enable sounds', 'Instant spin', 'Show nudge arrows']) {
   check(`behaviour toggle "${gone}" is gone`, !panelText.includes(gone));
 }
-check('presets are not in settings', (await page.locator('.panel__body .preset').count()) === 0);
+// Presets are reachable from both places — the quick bar and Settings.
+check('presets are in settings', (await page.locator('.panel__body .preset').count()) === 5);
 
 // One titled section per filtered category.
 const blockTitles = (await page.locator('.panel__body .panel__h').allTextContents()).map((t) => t.trim());
-for (const want of ['Helmet', 'Vest', 'Chest rig', 'Backpack', 'Maps', 'Operator classes', 'Weapon types']) {
+for (const want of [
+  'Presets',
+  'Helmet',
+  'Vest',
+  'Chest rig',
+  'Backpack',
+  'Maps',
+  'Operator classes',
+  'Weapon types',
+]) {
   check(`settings has a "${want}" section`, blockTitles.includes(want), blockTitles.join(' / '));
 }
 

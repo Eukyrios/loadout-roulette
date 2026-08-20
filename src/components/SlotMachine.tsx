@@ -121,7 +121,7 @@ export const SlotMachine = forwardRef<HTMLDivElement, Props>(function SlotMachin
       <div className="machine__top">
         <div className="machine__badge">
           <span className="machine__badge-sub">Delta Force</span>
-          <span className="machine__badge-main">Loadout Roulette</span>
+          <span className="machine__badge-main">2 · Roll your kit</span>
         </div>
         <div className={`machine__mode machine__mode--${tone}`}>
           <span className="machine__mode-label">Difficulty</span>
@@ -166,7 +166,7 @@ export const SlotMachine = forwardRef<HTMLDivElement, Props>(function SlotMachin
             aria-label="Coin slot"
           >
             <div className="coinslot__mouth" />
-            <span className="coinslot__text">{credits === 0 ? 'Insert token' : 'Paid'}</span>
+            <span className="coinslot__text">{credits === 0 ? 'Insert token' : 'Inserted'}</span>
           </div>
 
           {/* The label lives INSIDE the button. It used to be positioned below

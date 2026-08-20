@@ -222,8 +222,11 @@ function buildWheel(): { group: THREE.Group; dispose: () => void } {
   group.add(apron);
 
   // --- hub: the turret in the middle ------------------------------------
+  // Satin brass, not polished. At roughness 0.22 / metalness 1 the turret acted
+  // as a mirror and every lamp in the rig showed up as a hard white hotspot on
+  // it; a rougher, slightly darker finish scatters those into a soft sheen.
   const hubMat = keep(
-    new THREE.MeshStandardMaterial({ color: 0xd4af37, roughness: 0.22, metalness: 1 }),
+    new THREE.MeshStandardMaterial({ color: 0xb2913a, roughness: 0.58, metalness: 0.82 }),
   );
   const hubGeo = keep(new THREE.CylinderGeometry(R_HUB, R_HUB * 1.35, 0.5, 48));
   const hub = new THREE.Mesh(hubGeo, hubMat);

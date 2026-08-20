@@ -7,25 +7,30 @@
 :root {
   color-scheme: dark;
 
-  --bg: #080b0e;
-  --felt: #0d2a21;
-  --felt-2: #10362a;
-  --wood: #241610;
-  --surface: #151a21;
-  --surface-2: #1d242e;
-  --line: #2b3543;
-  --line-2: #3d4a5c;
+  /* Delta Force palette: Ebony ground, Spring Green accent, Alabaster text.
+     Everything else is derived from those three so the theme stays coherent. */
+  --bg: #060e13;
+  --panel: #0a141a;
+  --panel-2: #071016;
+  --steel: #16242e;
+  --surface: #0e1a21;
+  --surface-2: #14232c;
+  --line: #1f333e;
+  --line-2: #2e4756;
 
-  --text: #eef2f7;
-  --text-dim: #9aa7b8;
-  --text-faint: #667485;
+  --text: #fafafa;
+  --text-dim: #95a8b4;
+  --text-faint: #5e7381;
 
-  --gold: #d4af37;
-  --gold-dim: #8a7024;
-  --red: #c0392b;
-  --black: #23272e;
-  --green: #1f9d55;
-  --warn: #f4695f;
+  /* Spring Green does all the accenting the gold used to. */
+  --accent: #0ff796;
+  --accent-dim: #0a8f57;
+  --accent-rgb: 15, 247, 150;
+
+  --red: #e04a3a;
+  --black: #2b3742;
+  --green: #0ff796;
+  --warn: #ff6b52;
 
   --cell: 76px;
   --head-h: 26px;
@@ -47,9 +52,9 @@ body,
 body {
   margin: 0;
   background:
-    radial-gradient(1200px 700px at 50% -15%, #17313f 0%, transparent 62%),
-    radial-gradient(800px 500px at 8% 30%, #2a1220 0%, transparent 60%),
-    radial-gradient(800px 500px at 95% 20%, #122c24 0%, transparent 58%),
+    radial-gradient(1200px 700px at 50% -15%, #0e2a33 0%, transparent 62%),
+    radial-gradient(900px 520px at 8% 28%, #0a2220 0%, transparent 60%),
+    radial-gradient(900px 520px at 95% 18%, #08202a 0%, transparent 58%),
     var(--bg);
   background-attachment: fixed;
   color: var(--text);
@@ -101,7 +106,7 @@ body {
   font-size: 17px;
   font-weight: 800;
   letter-spacing: 0.01em;
-  color: var(--gold);
+  color: var(--accent);
 }
 
 .secttl__title--lg {
@@ -112,8 +117,8 @@ body {
 }
 
 .secttl__title--lg span {
-  color: var(--gold);
-  text-shadow: 0 0 26px rgba(212, 175, 55, 0.45);
+  color: var(--accent);
+  text-shadow: 0 0 26px rgba(var(--accent-rgb), 0.45);
 }
 
 .hdr__sub {
@@ -123,14 +128,10 @@ body {
   color: var(--text-dim);
 }
 
-.hdr__actions {
-  display: flex;
-  gap: 8px;
-}
-
 /* ------------------------------------------------------------- stage one */
 
 .stage {
+  margin-bottom: 22px;
   display: grid;
   grid-template-columns: minmax(0, 1.15fr) minmax(280px, 0.85fr);
   gap: 22px;
@@ -139,8 +140,8 @@ body {
   border: 1px solid var(--line);
   border-radius: 10px;
   background:
-    radial-gradient(120% 90% at 50% 0%, rgba(31, 157, 85, 0.09), transparent 60%),
-    linear-gradient(180deg, var(--felt) 0%, #091a15 100%);
+    radial-gradient(120% 90% at 50% 0%, rgba(var(--accent-rgb), 0.07), transparent 60%),
+    linear-gradient(180deg, var(--panel) 0%, var(--panel-2) 100%);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 18px 50px rgba(0, 0, 0, 0.5);
 }
 
@@ -200,13 +201,13 @@ body {
 }
 
 .legend__item--red {
-  background: linear-gradient(160deg, #d1483a, #97281d);
+  background: linear-gradient(160deg, #d1483a, #7d2118);
 }
 .legend__item--black {
-  background: linear-gradient(160deg, #39414d, #1b1f26);
+  background: linear-gradient(160deg, #38495a, #16212a);
 }
 .legend__item--green {
-  background: linear-gradient(160deg, #23ac5e, #14683c);
+  background: linear-gradient(160deg, #0ff796, #067a4a);
 }
 
 .legend__item:hover:not(:disabled) {
@@ -215,7 +216,7 @@ body {
 }
 
 .legend__item:focus-visible {
-  outline: 2px solid var(--gold);
+  outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
 
@@ -236,10 +237,12 @@ body {
   text-align: right;
 }
 
+/* White outline reads against all three tier colours — a green ring vanished
+   against the green row. */
 .legend__item.is-won {
-  border-color: var(--gold);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), 0 0 0 1px var(--gold),
-    0 0 20px rgba(212, 175, 55, 0.45);
+  border-color: #ffffff;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25), 0 0 0 2px #ffffff,
+    0 0 22px rgba(255, 255, 255, 0.35);
 }
 
 /* dispenser ------------------------------------------------------------ */
@@ -261,8 +264,8 @@ body {
 }
 
 .dispenser.is-open {
-  border-color: var(--gold);
-  box-shadow: 0 0 26px rgba(212, 175, 55, 0.22);
+  border-color: var(--accent);
+  box-shadow: 0 0 26px rgba(var(--accent-rgb), 0.22);
 }
 
 .dispenser__lip {
@@ -306,7 +309,7 @@ body {
   --c-face-mid: #c8a233;
   --c-face-lo: #8f7020;
   --c-ink: #4a3a08;
-  --c-glow: rgba(212, 175, 55, 0.3);
+  --c-glow: rgba(var(--accent-rgb), 0.3);
 
   width: 58px;
   height: 58px;
@@ -354,14 +357,15 @@ body {
 }
 
 /* Hard — gold */
+/* Hard token: anodised Spring Green rather than gold, to match the theme. */
 .coin--green {
-  --c-dark: #8a6d1c;
-  --c-light: #f6de83;
-  --c-face-hi: #ffeaa0;
-  --c-face-mid: #c8a233;
-  --c-face-lo: #8f7020;
-  --c-ink: #4a3a08;
-  --c-glow: rgba(212, 175, 55, 0.5);
+  --c-dark: #0a6e45;
+  --c-light: #7ffcc9;
+  --c-face-hi: #b8ffe4;
+  --c-face-mid: #17c383;
+  --c-face-lo: #0a6b44;
+  --c-ink: #04301f;
+  --c-glow: rgba(var(--accent-rgb), 0.5);
 }
 
 .coin__face {
@@ -390,13 +394,13 @@ body {
 .coin.is-dragging {
   cursor: grabbing;
   transform: scale(1.1);
-  box-shadow: 0 16px 30px rgba(0, 0, 0, 0.7), 0 0 30px rgba(212, 175, 55, 0.55);
+  box-shadow: 0 16px 30px rgba(0, 0, 0, 0.7), 0 0 30px rgba(var(--accent-rgb), 0.55);
   animation: none;
 }
 
 .coin.is-over {
-  box-shadow: 0 16px 30px rgba(0, 0, 0, 0.7), 0 0 0 4px rgba(212, 175, 55, 0.55),
-    0 0 40px rgba(212, 175, 55, 0.8);
+  box-shadow: 0 16px 30px rgba(0, 0, 0, 0.7), 0 0 0 4px rgba(var(--accent-rgb), 0.55),
+    0 0 40px rgba(var(--accent-rgb), 0.8);
 }
 
 .coin--spent {
@@ -416,24 +420,6 @@ body {
 }
 
 /* stage divider -------------------------------------------------------- */
-
-.stageline {
-  display: flex;
-  justify-content: center;
-  margin: 20px 0;
-}
-
-.stageline__pill {
-  padding: 7px 20px;
-  border-radius: 999px;
-  border: 1px solid var(--gold-dim);
-  background: rgba(212, 175, 55, 0.1);
-  color: var(--gold);
-  font-family: var(--mono);
-  font-size: 11px;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-}
 
 /* ------------------------------------------------------------- machine */
 
@@ -455,8 +441,8 @@ body {
   justify-content: space-between;
   gap: 12px;
   padding: 12px 18px;
-  background: linear-gradient(180deg, rgba(212, 175, 55, 0.18), rgba(0, 0, 0, 0.35));
-  border-bottom: 1px solid var(--gold-dim);
+  background: linear-gradient(180deg, rgba(var(--accent-rgb), 0.18), rgba(0, 0, 0, 0.35));
+  border-bottom: 1px solid var(--accent-dim);
 }
 
 .machine__badge {
@@ -470,7 +456,7 @@ body {
   font-size: 9px;
   letter-spacing: 0.28em;
   text-transform: uppercase;
-  color: var(--gold);
+  color: var(--accent);
 }
 
 .machine__badge-main {
@@ -580,9 +566,9 @@ body {
   height: var(--cell);
   pointer-events: none;
   z-index: 2;
-  border-top: 1px solid rgba(212, 175, 55, 0.55);
-  border-bottom: 1px solid rgba(212, 175, 55, 0.55);
-  background: linear-gradient(90deg, rgba(212, 175, 55, 0.09), rgba(212, 175, 55, 0.03));
+  border-top: 1px solid rgba(var(--accent-rgb), 0.55);
+  border-bottom: 1px solid rgba(var(--accent-rgb), 0.55);
+  background: linear-gradient(90deg, rgba(var(--accent-rgb), 0.09), rgba(var(--accent-rgb), 0.03));
 }
 
 .payline__arrow {
@@ -590,7 +576,7 @@ body {
   top: 50%;
   transform: translateY(-50%);
   font-size: 11px;
-  color: var(--gold);
+  color: var(--accent);
 }
 
 .payline__arrow--l {
@@ -700,7 +686,7 @@ body {
 
 @keyframes reel-flash {
   0% {
-    box-shadow: inset 0 0 18px rgba(0, 0, 0, 0.95), 0 0 0 2px rgba(212, 175, 55, 0.9);
+    box-shadow: inset 0 0 18px rgba(0, 0, 0, 0.95), 0 0 0 2px rgba(var(--accent-rgb), 0.9);
   }
   100% {
     box-shadow: inset 0 0 18px rgba(0, 0, 0, 0.95), 0 0 0 2px transparent;
@@ -744,8 +730,8 @@ body {
 }
 
 .reel__respin:hover:not(:disabled) {
-  color: var(--gold);
-  border-color: var(--gold-dim);
+  color: var(--accent);
+  border-color: var(--accent-dim);
 }
 
 .reel__respin:disabled {
@@ -787,17 +773,17 @@ body {
 }
 
 .coinslot.is-hungry {
-  border-color: var(--gold-dim);
+  border-color: var(--accent-dim);
   animation: slot-pulse 1.8s ease-in-out infinite;
 }
 
 @keyframes slot-pulse {
   0%,
   100% {
-    box-shadow: 0 0 0 rgba(212, 175, 55, 0);
+    box-shadow: 0 0 0 rgba(var(--accent-rgb), 0);
   }
   50% {
-    box-shadow: 0 0 22px rgba(212, 175, 55, 0.35);
+    box-shadow: 0 0 22px rgba(var(--accent-rgb), 0.35);
   }
 }
 
@@ -819,7 +805,7 @@ body {
 }
 
 .coinslot.is-hungry .coinslot__text {
-  color: var(--gold);
+  color: var(--accent);
 }
 
 .lever {
@@ -891,14 +877,14 @@ body {
 
 .lever.is-committed .lever__knob {
   box-shadow: 0 5px 12px rgba(0, 0, 0, 0.6), inset 0 -3px 6px rgba(0, 0, 0, 0.4),
-    0 0 22px rgba(212, 175, 55, 0.75);
+    0 0 22px rgba(var(--accent-rgb), 0.75);
 }
 
 .lever__text {
   font-family: var(--mono);
   font-size: 10px;
   letter-spacing: 0.2em;
-  color: var(--gold);
+  color: var(--accent);
 }
 
 .lever:disabled {
@@ -918,8 +904,8 @@ body {
 .stage--dice {
   margin-bottom: 22px;
   background:
-    radial-gradient(120% 90% at 50% 0%, rgba(212, 175, 55, 0.08), transparent 60%),
-    linear-gradient(180deg, #123a2c 0%, #081512 100%);
+    radial-gradient(120% 90% at 50% 0%, rgba(var(--accent-rgb), 0.07), transparent 60%),
+    linear-gradient(180deg, #0c1c22 0%, #061115 100%);
 }
 
 .stage__wheel--dice {
@@ -985,7 +971,7 @@ body {
 .dieresult__value {
   font-size: 19px;
   font-weight: 800;
-  color: var(--gold);
+  color: var(--accent);
   line-height: 1.15;
 }
 
@@ -1036,7 +1022,7 @@ body {
 .coin:focus-visible,
 .lever:focus-visible,
 .reel__respin:focus-visible {
-  outline: 2px solid var(--gold);
+  outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
 
@@ -1063,7 +1049,7 @@ body {
   background: none;
   border: none;
   padding: 0;
-  color: var(--gold);
+  color: var(--accent);
   font-family: var(--mono);
   font-size: 11px;
   text-transform: uppercase;
@@ -1071,21 +1057,23 @@ body {
   cursor: pointer;
 }
 
+/* Alabaster, not accent-coloured: the two primary actions need to out-rank
+   everything green on the page, and white does that without competing. */
 .btn--primary {
   font-size: 13px;
   padding: 12px 24px;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: #2a1f04;
-  background: linear-gradient(180deg, #f2d47a, var(--gold));
-  border-color: var(--gold);
+  color: #0a141a;
+  background: linear-gradient(180deg, #ffffff, #d8e2e8);
+  border-color: #ffffff;
   font-weight: 800;
 }
 
 .btn--primary:hover:not(:disabled) {
-  filter: brightness(1.08);
-  background: linear-gradient(180deg, #f2d47a, var(--gold));
-  border-color: var(--gold);
+  background: linear-gradient(180deg, #ffffff, #eef4f7);
+  border-color: #ffffff;
+  box-shadow: 0 0 22px rgba(255, 255, 255, 0.28);
 }
 
 /* ------------------------------------------------------------------ panel */
@@ -1116,7 +1104,7 @@ body {
 }
 
 .panel__chevron {
-  color: var(--gold);
+  color: var(--accent);
 }
 
 .panel__body {
@@ -1143,33 +1131,9 @@ body {
   border-top: 1px solid var(--line);
 }
 
-/* Preset bar above the cabinet. */
-.presetbar {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 14px;
-  margin-bottom: 14px;
-  padding: 12px 14px;
-  background: rgba(0, 0, 0, 0.24);
-  border: 1px solid var(--line);
-  border-radius: 6px;
-}
-
-.presetbar__label {
-  flex: 0 0 auto;
-  font-family: var(--mono);
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: var(--text-faint);
-}
-
 .presets {
-  flex: 1 1 340px;
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
   gap: 8px;
 }
 
@@ -1188,7 +1152,7 @@ body {
 }
 
 .preset:hover {
-  border-color: var(--gold);
+  border-color: var(--accent);
 }
 
 .preset__name {
@@ -1233,7 +1197,7 @@ body {
   font-weight: 800;
   letter-spacing: 0.01em;
   text-transform: none;
-  color: var(--gold);
+  color: var(--accent);
 }
 
 .rangectl__row {
@@ -1267,7 +1231,7 @@ body {
   font-family: var(--mono);
   font-size: 12px;
   font-weight: 700;
-  color: var(--gold);
+  color: var(--accent);
 }
 
 .chips {
@@ -1289,8 +1253,8 @@ body {
 
 .chip.is-on {
   color: #2a1f04;
-  background: var(--gold);
-  border-color: var(--gold);
+  background: var(--accent);
+  border-color: var(--accent);
   font-weight: 600;
 }
 

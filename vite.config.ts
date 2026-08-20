@@ -3,7 +3,8 @@ import react from '@vitejs/plugin-react'
 
 // https://vite.dev/config/
 export default defineConfig({
-  // Served from https://<user>.github.io/loadout-roulette/ on GitHub Pages.
-  base: '/loadout-roulette/',
+  // Relative so the build works both at a domain root and under a
+  // GitHub Pages project subpath (/loadout-roulette/) without a rebuild.
+  base: './',
   plugins: [react()],
 })

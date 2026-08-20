@@ -13,7 +13,7 @@ import { SLOTS } from './data/slots';
 import type { Entry, FilterState, Roll } from './data/types';
 import { defaultFilterState, resolvePools } from './engine/filters';
 import { usePersisted } from './engine/persist';
-import { PRESETS, applyPreset } from './engine/presets';
+import { applyPreset } from './engine/presets';
 import { randomSeedCode } from './engine/rng';
 import { emptySlots, rollAll, rollDie, rollPocket, rollSlot } from './engine/roll';
 import { sfx } from './engine/sound';
@@ -46,7 +46,8 @@ function SectionTitle({ children }: { children: ReactNode }) {
 export default function App() {
   const [filters, setFilters] = usePersisted<FilterState>('filters', defaultFilterState());
 
-  const [seed, setSeed] = useState(() => seedFromUrl() ?? randomSeedCode());
+  // Fixed for the life of the page: ?seed=CODE still pins a reproducible run.
+  const [seed] = useState(() => seedFromUrl() ?? randomSeedCode());
   const [spins, setSpins] = useState<Record<string, number>>({});
   const [rolls, setRolls] = useState<Record<string, Roll>>({});
   const [spinning, setSpinning] = useState<Record<string, boolean>>({});
@@ -69,7 +70,6 @@ export default function App() {
   const [diceBusy, setDiceBusy] = useState(false);
 
   const [panelOpen, setPanelOpen] = useState(false);
-  const [copied, setCopied] = useState(false);
 
   const diceRef = useRef<DiceHandle>(null);
   const wheelRef = useRef<RouletteHandle>(null);
@@ -315,45 +315,7 @@ export default function App() {
     return () => window.removeEventListener('keydown', onKey);
   }, [coinReady, credits, pull, spinWheel]);
 
-  const newSeed = useCallback(() => {
-    const s = randomSeedCode();
-    setSeed(s);
-    setSpins({});
-    setRolls({});
-    setMode(null);
-    setCoinReady(false);
-    setCredits(0);
-    setCreditMode(null);
-    setArmed(false);
-    setDice(null);
-    setLoadoutCost(null);
-    setAttachCost(null);
-    const url = new URL(window.location.href);
-    url.searchParams.set('seed', s);
-    window.history.replaceState({}, '', url);
-  }, []);
-
-  const share = useCallback(async () => {
-    const url = new URL(window.location.href);
-    url.searchParams.set('seed', seed);
-    try {
-      await navigator.clipboard.writeText(url.toString());
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1600);
-    } catch {
-      window.prompt('Copy this link:', url.toString());
-    }
-  }, [seed]);
-
   /* ------------------------------------------------------------- render */
-
-  const stage = wheelBusy
-    ? 'Spinning…'
-    : coinReady
-      ? 'Take your token'
-      : credits > 0
-        ? 'Pull the lever'
-        : 'Spin the wheel';
 
   return (
     <div className="app">
@@ -366,14 +328,6 @@ export default function App() {
             </h1>
           </div>
           <p className="hdr__sub">Operations · spin, take the token, pull</p>
-        </div>
-        <div className="hdr__actions">
-          <button type="button" className="btn" onClick={share}>
-            {copied ? 'Link copied' : `Seed ${seed}`}
-          </button>
-          <button type="button" className="btn" onClick={newSeed}>
-            New seed
-          </button>
         </div>
       </header>
 
@@ -448,34 +402,10 @@ export default function App() {
         </div>
       </section>
 
-      <div className="stageline">
-        <span className="stageline__pill">{stage}</span>
-      </div>
-
       {/* ---------------------------------------------------- stage two */}
+      {/* No heading here: the cabinet's own badge carries the eyebrow and
+          title, so a SectionTitle above it would just say it twice. */}
       <section className="stage2">
-        <SectionTitle>2 · Roll your kit</SectionTitle>
-
-        {/* Presets live here rather than buried in Settings — they are the
-            fastest way to change what the reels can land on. */}
-        <div className="presetbar">
-          <span className="presetbar__label">Preset</span>
-          <div className="presets">
-            {PRESETS.map((p) => (
-              <button
-                key={p.id}
-                type="button"
-                className="preset"
-                onClick={() => setFilters(applyPreset(p.id))}
-                title={p.blurb}
-              >
-                <span className="preset__name">{p.name}</span>
-                <span className="preset__blurb">{p.blurb}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-
         {missing.length > 0 && (
           <div className="warn" role="status">
             <strong>Nothing matches your filters</strong> for: {missing.join(', ')}.
@@ -543,10 +473,6 @@ export default function App() {
             {diceBusy ? 'Rolling…' : 'Throw the dice'}
           </button>
 
-          <p className="stage__foot">
-            Caps are in Tekniq Alloy. Low rolls are meant to hurt — a 1 on the white die is a
-            genuine scav run.
-          </p>
         </div>
       </section>
 
@@ -555,6 +481,7 @@ export default function App() {
         onToggle={() => setPanelOpen((o) => !o)}
         filters={filters}
         onFilters={setFilters}
+        onPreset={(id) => setFilters(applyPreset(id))}
         onReset={() => setFilters(defaultFilterState())}
       />
 
@@ -562,7 +489,7 @@ export default function App() {
         <p>
           An unofficial fan tool. Delta Force is a trademark of its publisher; this project is not
           affiliated with or endorsed by them. Game data is community-sourced and may lag behind the
-          live build — edit <code>src/data/deltaforce.ts</code> to correct it.
+          live build.
         </p>
       </footer>
     </div>

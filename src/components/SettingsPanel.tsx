@@ -1,12 +1,14 @@
 import type { FilterState, SlotSpec } from '../data/types';
 import { SLOTS } from '../data/slots';
 import { multiKey, rangeBounds, rangeKey } from '../engine/filters';
+import { PRESETS } from '../engine/presets';
 
 interface Props {
   open: boolean;
   onToggle: () => void;
   filters: FilterState;
   onFilters: (next: FilterState) => void;
+  onPreset: (id: string) => void;
   onReset: () => void;
 }
 
@@ -121,7 +123,7 @@ function Block({
   );
 }
 
-export function SettingsPanel({ open, onToggle, filters, onFilters, onReset }: Props) {
+export function SettingsPanel({ open, onToggle, filters, onFilters, onPreset, onReset }: Props) {
   // Every slot that has a filter gets its own section, in SLOTS order.
   const rangeSlots = SLOTS.filter((s) => s.filters?.some((f) => f.kind === 'range'));
   const multiSlots = SLOTS.filter((s) => s.filters?.some((f) => f.kind === 'multi'));
@@ -138,6 +140,25 @@ export function SettingsPanel({ open, onToggle, filters, onFilters, onReset }: P
 
       {open && (
         <div className="panel__body">
+          {/* Also available as a bar above the cabinet — kept here so the
+              whole filter setup can be driven from one place. */}
+          <Block title="Presets">
+            <div className="presets">
+              {PRESETS.map((p) => (
+                <button
+                  key={p.id}
+                  type="button"
+                  className="preset"
+                  onClick={() => onPreset(p.id)}
+                  title={p.blurb}
+                >
+                  <span className="preset__name">{p.name}</span>
+                  <span className="preset__blurb">{p.blurb}</span>
+                </button>
+              ))}
+            </div>
+          </Block>
+
           {/* --- tier bounds, one section per gear slot -------------------- */}
           <div className="panel__grid">
             {rangeSlots.map((slot) =>
