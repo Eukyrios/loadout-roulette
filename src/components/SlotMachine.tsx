@@ -12,7 +12,6 @@ interface Props {
   pools: Record<string, Entry[]>;
   spinning: Record<string, boolean>;
   durations: Record<string, number>;
-  instant: boolean;
   /** True until a coin has been inserted — reels are inert. */
   locked: boolean;
   credits: number;
@@ -37,7 +36,6 @@ export const SlotMachine = forwardRef<HTMLDivElement, Props>(function SlotMachin
     pools,
     spinning,
     durations,
-    instant,
     locked,
     credits,
     creditMode,
@@ -150,7 +148,6 @@ export const SlotMachine = forwardRef<HTMLDivElement, Props>(function SlotMachin
                 held={rolls[slot.id]?.held ?? false}
                 spinning={!!spinning[slot.id]}
                 duration={durations[slot.id] ?? 1600}
-                instant={instant}
                 locked={locked}
                 onHold={() => onHold(slot.id)}
                 onSpin={() => onSpin(slot.id)}

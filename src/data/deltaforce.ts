@@ -141,7 +141,9 @@ const m = (id: string, name: string, modes: string): Entry => ({
     .split(',')
     .map((k) => MODES.find((mode) => mode.id === k)?.name ?? k)
     .join(' / '),
-  attrs: { modes },
+  // `name` is duplicated into attrs so the map picker can filter on it with
+  // the same multi-select machinery every other slot uses.
+  attrs: { modes, name },
 });
 
 export const MAPS: Entry[] = [

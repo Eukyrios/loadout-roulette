@@ -291,6 +291,78 @@ const throwDice = async () => {
 const [d1, d2] = [await throwDice(), await throwDice()];
 check('seeded dice are reproducible', d1 === d2, `${d1} vs ${d2}`);
 
+/* ------------------------------------------------ layout & settings shape */
+
+// Every section heading carries the same eyebrow.
+const eyebrows = (await page.locator('.secttl__eyebrow').allTextContents()).map((t) => t.trim());
+check('every section heading has the eyebrow', eyebrows.length >= 4, `${eyebrows.length} found`);
+check('eyebrows all read the same', new Set(eyebrows).size === 1 && eyebrows[0] === 'Delta Force', eyebrows.join('|'));
+
+// Presets sit above the cabinet, not inside Settings.
+const presetBar = page.locator('.presetbar');
+check('preset bar exists above the machine', (await presetBar.count()) === 1);
+check(
+  'preset bar precedes the cabinet',
+  await page.evaluate(() => {
+    const bar = document.querySelector('.presetbar');
+    const cab = document.querySelector('.machine');
+    if (!bar || !cab) return false;
+    return !!(bar.compareDocumentPosition(cab) & Node.DOCUMENT_POSITION_FOLLOWING);
+  }),
+);
+
+// The stage line never suggests re-spinning.
+check(
+  'removed the spin-again wording',
+  !(await page.locator('body').textContent()).includes('Spin again for a new run'),
+);
+
+// Nudge arrows are permanent now, not a toggle.
+// Two arrows per reel, always rendered (the old toggle is gone).
+check(
+  'nudge arrows always present',
+  (await page.locator('.reel__controls .btn--icon').count()) === 14,
+  `${await page.locator('.reel__controls .btn--icon').count()}`,
+);
+
+await page.locator('.panel__toggle').click();
+await page.waitForTimeout(200);
+
+const panelText = await page.locator('.panel__body').textContent();
+for (const gone of ['Enable sounds', 'Instant spin', 'Show nudge arrows']) {
+  check(`behaviour toggle "${gone}" is gone`, !panelText.includes(gone));
+}
+check('presets are not in settings', (await page.locator('.panel__body .preset').count()) === 0);
+
+// One titled section per filtered category.
+const blockTitles = (await page.locator('.panel__body .panel__h').allTextContents()).map((t) => t.trim());
+for (const want of ['Helmet', 'Vest', 'Chest rig', 'Backpack', 'Maps', 'Operator classes', 'Weapon types']) {
+  check(`settings has a "${want}" section`, blockTitles.includes(want), blockTitles.join(' / '));
+}
+
+// The map picker is real: unticking a map drops it from the pool.
+const mapBlock = page
+  .locator('.panel__block')
+  .filter({ has: page.locator('.panel__h', { hasText: 'Maps' }) });
+check('map picker lists every map', (await mapBlock.locator('.chip').count()) === 7);
+
+await page.locator('.legend__item--black').click(); // Normal: 6 maps available
+await page.waitForTimeout(200);
+const beforeMaps = await poolSize('map');
+await mapBlock.locator('.chip', { hasText: 'Brakkesh' }).first().click();
+await page.waitForTimeout(200);
+const afterMaps = await poolSize('map');
+check('unticking a map shrinks the pool', afterMaps === beforeMaps - 1, `${beforeMaps} -> ${afterMaps}`);
+
+// And it composes with the difficulty gate rather than overriding it.
+await page.locator('.legend__item--red').click(); // Easy never offers Brakkesh anyway
+await page.waitForTimeout(200);
+check('map picker composes with difficulty', (await poolSize('map')) === 4);
+
+await mapBlock.locator('.chip', { hasText: 'Brakkesh' }).first().click(); // restore
+await page.locator('.panel__toggle').click();
+await page.waitForTimeout(200);
+
 await page.screenshot({ path: 'preview.png', fullPage: true });
 check('no console errors', errors.length === 0, errors.slice(0, 3).join(' ;; '));
 

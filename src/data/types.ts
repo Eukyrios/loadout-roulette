@@ -85,9 +85,3 @@ export interface FilterState {
   /** `${slotId}:${attr}` -> allowed values */
   multi: Record<string, string[]>;
 }
-
-export interface AppSettings {
-  sounds: boolean;
-  instantSpin: boolean;
-  showNudgers: boolean;
-}

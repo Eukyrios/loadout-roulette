@@ -16,7 +16,6 @@ interface Props {
   /** Spin length in ms. Staggering this across reels is what makes them
    *  settle one after another. */
   duration: number;
-  instant: boolean;
   locked: boolean;
   onHold: () => void;
   onSpin: () => void;
@@ -35,7 +34,6 @@ export function SlotReel({
   held,
   spinning,
   duration,
-  instant,
   locked,
   onHold,
   onSpin,
@@ -77,7 +75,7 @@ export function SlotReel({
     if (!spinning) return;
     clearTimers();
 
-    if (instant || empty) {
+    if (empty) {
       cb.current.onSpinEnd();
       return;
     }

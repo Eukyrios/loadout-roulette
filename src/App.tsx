@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Coin } from './components/Coin';
 import { SettingsPanel } from './components/SettingsPanel';
 import { SlotMachine } from './components/SlotMachine';
@@ -10,10 +10,10 @@ import {
   WHEEL_POCKETS,
 } from './data/deltaforce';
 import { SLOTS } from './data/slots';
-import type { AppSettings, Entry, FilterState, Roll } from './data/types';
+import type { Entry, FilterState, Roll } from './data/types';
 import { defaultFilterState, resolvePools } from './engine/filters';
 import { usePersisted } from './engine/persist';
-import { applyPreset } from './engine/presets';
+import { PRESETS, applyPreset } from './engine/presets';
 import { randomSeedCode } from './engine/rng';
 import { emptySlots, rollAll, rollDie, rollPocket, rollSlot } from './engine/roll';
 import { sfx } from './engine/sound';
@@ -30,12 +30,20 @@ function seedFromUrl(): string | null {
   return s && /^[A-Z0-9]{4,16}$/i.test(s) ? s.toUpperCase() : null;
 }
 
+/**
+ * Every section heading in the app is this shape: a small "Delta Force"
+ * eyebrow above the title itself.
+ */
+function SectionTitle({ children }: { children: ReactNode }) {
+  return (
+    <div className="secttl">
+      <span className="secttl__eyebrow">Delta Force</span>
+      <h2 className="secttl__title">{children}</h2>
+    </div>
+  );
+}
+
 export default function App() {
-  const [settings, setSettings] = usePersisted<AppSettings>('settings', {
-    sounds: true,
-    instantSpin: false,
-    showNudgers: true,
-  });
   const [filters, setFilters] = usePersisted<FilterState>('filters', defaultFilterState());
 
   const [seed, setSeed] = useState(() => seedFromUrl() ?? randomSeedCode());
@@ -66,8 +74,6 @@ export default function App() {
   const diceRef = useRef<DiceHandle>(null);
   const wheelRef = useRef<RouletteHandle>(null);
   const coinSlotRef = useRef<HTMLDivElement>(null);
-  const settingsRef = useRef(settings);
-  settingsRef.current = settings;
 
   /* ----------------------------------------------------------- derived */
 
@@ -104,19 +110,16 @@ export default function App() {
 
     // Track the ball's speed with the rolling bed so the audio decelerates
     // with the picture instead of running at one pitch throughout.
-    let ticker = 0;
-    if (settingsRef.current.sounds) {
-      sfx.wheelStart();
-      const t0 = performance.now();
-      ticker = window.setInterval(() => {
-        const u = Math.min(1, (performance.now() - t0) / 6200);
-        sfx.wheelSpeed(Math.pow(1 - u, 1.5));
-      }, 140);
-    }
+    sfx.wheelStart();
+    const t0 = performance.now();
+    const ticker = window.setInterval(() => {
+      const u = Math.min(1, (performance.now() - t0) / 6200);
+      sfx.wheelSpeed(Math.pow(1 - u, 1.5));
+    }, 140);
 
     await wheelRef.current?.spin(pocket);
     window.clearInterval(ticker);
-    if (settingsRef.current.sounds) sfx.wheelStop();
+    sfx.wheelStop();
 
     const won = MODE_BY_ID[WHEEL_POCKETS[pocket]] ?? MODES[0];
     setMode(won);
@@ -126,7 +129,7 @@ export default function App() {
     setRolls((prev) => ({ ...prev, map: { slotId: 'map', entry: null, held: false } }));
     setCoinReady(true);
     setWheelBusy(false);
-    if (settingsRef.current.sounds) sfx.coinDrop();
+    sfx.coinDrop();
   }, [seed, spins, wheelBusy]);
 
   const insertCoin = useCallback(() => {
@@ -135,7 +138,7 @@ export default function App() {
     // The token carries its difficulty into the machine — that is what the
     // cabinet's indicator reports, rather than a credit count.
     setCreditMode(mode);
-    if (settingsRef.current.sounds) sfx.coin();
+    sfx.coin();
   }, [mode]);
 
   /**
@@ -148,7 +151,7 @@ export default function App() {
       setMode(picked);
       setRolls((prev) => ({ ...prev, map: { slotId: 'map', entry: null, held: false } }));
       setCoinReady(true);
-      if (settingsRef.current.sounds) sfx.coinDrop();
+      sfx.coinDrop();
     },
     [wheelBusy],
   );
@@ -176,18 +179,16 @@ export default function App() {
     );
     setSpinning(Object.fromEntries(live.map((s) => [s.id, true])));
 
-    if (settingsRef.current.sounds) {
-      sfx.lever();
-      sfx.reelStart();
-      // Wind the whirr down over the length of the longest reel.
-      const span = SPIN_BASE + Math.max(0, live.length - 1) * SPIN_STEP;
-      const t0 = performance.now();
-      const id = window.setInterval(() => {
-        const u = (performance.now() - t0) / span;
-        if (u >= 1) return window.clearInterval(id);
-        sfx.reelSpeed(1 - u * 0.75);
-      }, 150);
-    }
+    sfx.lever();
+    sfx.reelStart();
+    // Wind the whirr down over the length of the longest reel.
+    const span = SPIN_BASE + Math.max(0, live.length - 1) * SPIN_STEP;
+    const t0 = performance.now();
+    const id = window.setInterval(() => {
+      const u = (performance.now() - t0) / span;
+      if (u >= 1) return window.clearInterval(id);
+      sfx.reelSpeed(1 - u * 0.75);
+    }, 150);
   }, [anySpinning, credits, filters, pools, rolls, rollsWithMode, seed, spins]);
 
   const spinOne = useCallback(
@@ -214,7 +215,7 @@ export default function App() {
         ...p,
         [slotId]: { slotId, entry: next, held: p[slotId]?.held ?? false },
       }));
-      if (settingsRef.current.sounds) sfx.tick();
+      sfx.tick();
     },
     [pools, rolls],
   );
@@ -225,11 +226,11 @@ export default function App() {
       if (!cur) return prev;
       return { ...prev, [slotId]: { ...cur, held: !cur.held } };
     });
-    if (settingsRef.current.sounds) sfx.hold();
+    sfx.hold();
   }, []);
 
   const onTick = useCallback(() => {
-    if (settingsRef.current.sounds) sfx.tick();
+    sfx.tick();
   }, []);
 
   const onSpinEnd = useCallback((slotId: string) => {
@@ -237,14 +238,12 @@ export default function App() {
       if (!prev[slotId]) return prev;
       const next = { ...prev, [slotId]: false };
 
-      if (settingsRef.current.sounds) {
-        const index = SLOTS.findIndex((s) => s.id === slotId);
-        sfx.reelLand(Math.max(0, index));
-        // Last reel home: kill the whirr and pay out.
-        if (!Object.values(next).some(Boolean)) {
-          sfx.reelStop();
-          window.setTimeout(() => sfx.jackpot(), 130);
-        }
+      const index = SLOTS.findIndex((s) => s.id === slotId);
+      sfx.reelLand(Math.max(0, index));
+      // Last reel home: kill the whirr and pay out.
+      if (!Object.values(next).some(Boolean)) {
+        sfx.reelStop();
+        window.setTimeout(() => sfx.jackpot(), 130);
       }
       return next;
     });
@@ -292,7 +291,7 @@ export default function App() {
     const a = rollDie(seed, 'loadout', n);
     const b = rollDie(seed, 'attach', n);
 
-    if (settingsRef.current.sounds) sfx.diceThrow();
+    sfx.diceThrow();
     // Bounce and settle sounds are fired by the tray itself, on real contacts.
     await diceRef.current?.roll(a, b);
 
@@ -354,18 +353,19 @@ export default function App() {
       ? 'Take your token'
       : credits > 0
         ? 'Pull the lever'
-        : mode
-          ? 'Spin again for a new run'
-          : 'Spin the wheel';
+        : 'Spin the wheel';
 
   return (
     <div className="app">
       <header className="hdr">
         <div>
-          <h1 className="hdr__title">
-            Loadout <span>Roulette</span>
-          </h1>
-          <p className="hdr__sub">Delta Force · Operations · spin, take the token, pull</p>
+          <div className="secttl">
+            <span className="secttl__eyebrow">Delta Force</span>
+            <h1 className="secttl__title secttl__title--lg">
+              Loadout <span>Roulette</span>
+            </h1>
+          </div>
+          <p className="hdr__sub">Operations · spin, take the token, pull</p>
         </div>
         <div className="hdr__actions">
           <button type="button" className="btn" onClick={share}>
@@ -383,13 +383,13 @@ export default function App() {
           <RouletteWheel
             ref={wheelRef}
             className="wheelcanvas"
-            onRattle={(s) => settingsRef.current.sounds && sfx.ballRattle(s)}
+            onRattle={(s) => sfx.ballRattle(s)}
           />
           <div className="wheelglow" aria-hidden="true" />
         </div>
 
         <div className="stage__side">
-          <h2 className="stage__h">1 · Roll for difficulty</h2>
+          <SectionTitle>1 · Roll for difficulty</SectionTitle>
           {/* Also a manual override: click a colour to mint that token
               directly and skip the wheel. */}
           <ul className="legend">
@@ -454,7 +454,27 @@ export default function App() {
 
       {/* ---------------------------------------------------- stage two */}
       <section className="stage2">
-        <h2 className="stage__h">2 · Roll your kit</h2>
+        <SectionTitle>2 · Roll your kit</SectionTitle>
+
+        {/* Presets live here rather than buried in Settings — they are the
+            fastest way to change what the reels can land on. */}
+        <div className="presetbar">
+          <span className="presetbar__label">Preset</span>
+          <div className="presets">
+            {PRESETS.map((p) => (
+              <button
+                key={p.id}
+                type="button"
+                className="preset"
+                onClick={() => setFilters(applyPreset(p.id))}
+                title={p.blurb}
+              >
+                <span className="preset__name">{p.name}</span>
+                <span className="preset__blurb">{p.blurb}</span>
+              </button>
+            ))}
+          </div>
+        </div>
 
         {missing.length > 0 && (
           <div className="warn" role="status">
@@ -468,7 +488,6 @@ export default function App() {
           pools={pools}
           spinning={spinning}
           durations={durations}
-          instant={settings.instantSpin}
           locked={locked}
           credits={credits}
           creditMode={creditMode}
@@ -488,14 +507,14 @@ export default function App() {
           <DiceTray
             ref={diceRef}
             className="wheelcanvas"
-            onBounce={(s) => settingsRef.current.sounds && sfx.diceBounce(s)}
-            onSettle={() => settingsRef.current.sounds && sfx.diceSettle()}
+            onBounce={(s) => sfx.diceBounce(s)}
+            onSettle={() => sfx.diceSettle()}
           />
           <div className="wheelglow" aria-hidden="true" />
         </div>
 
         <div className="stage__side">
-          <h2 className="stage__h">3 · Roll for spending caps</h2>
+          <SectionTitle>3 · Roll for spending caps</SectionTitle>
 
           <div className="dieresult dieresult--white">
             <span className="dieresult__pip">{dice ? dice[0] : '?'}</span>
@@ -534,11 +553,8 @@ export default function App() {
       <SettingsPanel
         open={panelOpen}
         onToggle={() => setPanelOpen((o) => !o)}
-        settings={settings}
-        onSettings={(patch) => setSettings((prev) => ({ ...prev, ...patch }))}
         filters={filters}
         onFilters={setFilters}
-        onPreset={(id) => setFilters(applyPreset(id))}
         onReset={() => setFilters(defaultFilterState())}
       />
 

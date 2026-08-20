@@ -78,15 +78,40 @@ body {
   margin-bottom: 26px;
 }
 
-.hdr__title {
-  margin: 0;
-  font-size: 30px;
-  font-weight: 800;
-  letter-spacing: -0.02em;
-  text-transform: uppercase;
+/* One heading shape used everywhere: a small "Delta Force" eyebrow sitting
+   above the title itself. */
+.secttl {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0 0 10px;
 }
 
-.hdr__title span {
+.secttl__eyebrow {
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.secttl__title {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  color: var(--gold);
+}
+
+.secttl__title--lg {
+  font-size: 30px;
+  letter-spacing: -0.02em;
+  text-transform: uppercase;
+  color: var(--text);
+}
+
+.secttl__title--lg span {
   color: var(--gold);
   text-shadow: 0 0 26px rgba(212, 175, 55, 0.45);
 }
@@ -144,15 +169,6 @@ body {
   gap: 12px;
 }
 
-.stage__h {
-  margin: 0 0 4px;
-  font-family: var(--mono);
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: var(--gold);
-}
 
 /* legend --------------------------------------------------------------- */
 
@@ -1127,31 +1143,33 @@ body {
   border-top: 1px solid var(--line);
 }
 
-.switches {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 18px;
-}
-
-.switch {
+/* Preset bar above the cabinet. */
+.presetbar {
   display: flex;
   align-items: center;
-  gap: 7px;
-  font-size: 13px;
-  cursor: pointer;
-  color: var(--text-dim);
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-bottom: 14px;
+  padding: 12px 14px;
+  background: rgba(0, 0, 0, 0.24);
+  border: 1px solid var(--line);
+  border-radius: 6px;
 }
 
-.switch input {
-  accent-color: var(--gold);
-  width: 15px;
-  height: 15px;
-  cursor: pointer;
+.presetbar__label {
+  flex: 0 0 auto;
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--text-faint);
 }
 
 .presets {
+  flex: 1 1 340px;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 8px;
 }
 
@@ -1184,25 +1202,38 @@ body {
   line-height: 1.35;
 }
 
-.grid-2 {
+/* Each filtered slot gets its own titled section. */
+.panel__grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 0 20px;
+}
+
+.panel__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
   gap: 12px;
+  margin-bottom: 10px;
 }
 
-.rangectl {
-  padding: 10px 12px;
-  background: var(--surface-2);
-  border: 1px solid var(--line);
-  border-radius: 4px;
+.panel__head .panel__h {
+  margin: 0;
 }
 
-.rangectl__title {
-  font-family: var(--mono);
-  font-size: 11px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--text-dim);
+.panel__toggle-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  text-align: left;
+}
+
+.panel__toggle-title {
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  text-transform: none;
+  color: var(--gold);
 }
 
 .rangectl__row {
@@ -1237,13 +1268,6 @@ body {
   font-size: 12px;
   font-weight: 700;
   color: var(--gold);
-}
-
-.multictl__head {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 9px;
 }
 
 .chips {

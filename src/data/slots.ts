@@ -59,7 +59,7 @@ export const SLOTS: SlotSpec[] = [
     label: 'Map',
     group: 'core',
     entries: MAPS,
-    filters: [],
+    filters: [{ kind: 'multi', attr: 'name', label: 'Maps', values: MAPS.map((x) => x.name) }],
     // Only maps that actually run the rolled tier can come up.
     dependsOn: {
       slotId: 'mode',
