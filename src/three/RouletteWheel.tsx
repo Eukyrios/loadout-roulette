@@ -87,14 +87,22 @@ const CAM_TILT_LANDED = (12 * Math.PI) / 180;
  * Both deliberately gentle — pulled all the way onto the ball, the bowl gets
  * cropped in half and the wheel stops reading as a wheel.
  */
-const ZOOM_R = 6.3;
+const ZOOM_R = 5.1;
 const ZOOM_BIAS = 0.45;
 /** Seconds to move into the close-up, and to swing back out for a new roll. */
 const CAM_IN = 1.6;
 const CAM_OUT = 0.85;
 const CAM_FOV = 38;
-/** Outer silhouette of the bowl: rim radius plus a sliver of air. */
-const FIT_RADIUS = R_BOWL + 0.25;
+/**
+ * How much of the bowl the wide shot keeps in frame. Deliberately inside the
+ * rim radius — fitting the whole silhouette leaves the wheel small and adrift
+ * in its panel, and the outer lip is the least interesting part of it, so the
+ * frame is allowed to run slightly past it.
+ *
+ * This is about as tight as it goes: the ball runs the track at r = 5.7, so
+ * anything below that crops the ball itself out of shot mid-spin.
+ */
+const FIT_RADIUS = R_BOWL - 0.75;
 /** Top of the rim — the highest thing that must stay in frame. */
 const FIT_HEIGHT = Y_TRACK + 0.8;
 
