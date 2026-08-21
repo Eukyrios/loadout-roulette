@@ -23,21 +23,33 @@ import { RouletteWheel, type RouletteHandle } from './three/RouletteWheel';
 import { DiceTray, type DiceHandle } from './three/DiceTray';
 import { StickCup, type StickHandle } from './three/StickCup';
 
-/** Reel stop cadence. Reel n settles BASE + n·STEP ms after the pull. */
-const SPIN_BASE = 1500;
-const SPIN_STEP = 400;
 /**
- * Extra spin time per tier above 1 — a rarer result hangs on longer before it
- * drops. Kept well under SPIN_STEP so the left-to-right settle order still
- * reads: rarity stretches the cadence, it does not scramble it.
+ * Base spin length for one reel. Reels run STRICTLY ONE AT A TIME, left to
+ * right, so these add up — hence a shorter base than when they overlapped.
  */
-const RARITY_MS = 320;
+const SPIN_BASE = 700;
+
+/**
+ * How much longer a Tier 6 spins than a Tier 1.
+ *
+ * Rarity multiplies the spin rather than adding to it, so the ratio is exact
+ * and identical for every column. An earlier version added a flat bonus on top
+ * of a per-column stagger, which diluted it — a red came out 2.07x a grey in
+ * the first column but only 1.59x by the fourth.
+ *
+ * Running the reels in sequence rather than in parallel is what lets rarity
+ * stretch a spin freely: order is guaranteed by the queue, not by the clock, so
+ * a long spin can never overtake the column before it.
+ */
+const RARITY_MAX = 2.5;
+
+/** 1.0 at Tier 1, rising evenly to RARITY_MAX at Tier 6. */
+const rarityFactor = (tier: number) =>
+  1 + (Math.max(1, Math.min(6, tier)) - 1) * ((RARITY_MAX - 1) / 5);
 
 /** How long a reel should spin for the item it is about to land on. */
-const spinTimeFor = (entry: Entry | null, index = 0) =>
-  SPIN_BASE +
-  index * SPIN_STEP +
-  Math.max(0, Number(entry?.attrs?.tier ?? 1) - 1) * RARITY_MS;
+const spinTimeFor = (entry: Entry | null) =>
+  Math.round(SPIN_BASE * rarityFactor(Number(entry?.attrs?.tier ?? 1)));
 
 function seedFromUrl(): string | null {
   if (typeof window === 'undefined') return null;
@@ -92,6 +104,10 @@ export default function App() {
   const stickRef = useRef<StickHandle>(null);
   const wheelRef = useRef<RouletteHandle>(null);
   const coinSlotRef = useRef<HTMLDivElement>(null);
+  /** Columns still waiting to spin, in order. Drained by onSpinEnd. */
+  const spinQueue = useRef<string[]>([]);
+  /** True while a lever pull is running, so only that earns the jackpot. */
+  const fullPull = useRef(false);
 
   /* ----------------------------------------------------------- derived */
 
@@ -188,21 +204,25 @@ export default function App() {
     const nextRolls = rollAll(seed, nextSpins, filters, rollsWithMode);
     setRolls(nextRolls);
 
-    // Stagger the stop times in SLOTS order — this is what makes them settle
-    // one after another rather than all at once — then stretch each by the
-    // rarity of its result.
+    // One reel at a time, left to right: each starts only when the one before
+    // it has landed. The queue — not a set of staggered timers — is what
+    // guarantees the order, which is why a rare reel can spin as long as it
+    // likes without ever overtaking its neighbour.
     const live = SLOTS.filter((s) => !rolls[s.id]?.held && pools[s.id].length > 0);
     const times = Object.fromEntries(
-      live.map((s, i) => [s.id, spinTimeFor(nextRolls[s.id]?.entry ?? null, i)]),
+      live.map((s) => [s.id, spinTimeFor(nextRolls[s.id]?.entry ?? null)]),
     );
     setDurations(times);
-    setSpinning(Object.fromEntries(live.map((s) => [s.id, true])));
+
+    fullPull.current = true;
+    spinQueue.current = live.slice(1).map((s) => s.id);
+    if (live.length === 0) return;
+    setSpinning({ [live[0].id]: true });
 
     sfx.lever();
     sfx.reelStart();
-    // Wind the whirr down over whichever reel actually runs longest, which is
-    // no longer simply the last one now that rarity stretches them.
-    const span = Math.max(SPIN_BASE, ...Object.values(times));
+    // The reels run back to back, so the whirr has to cover the SUM of them.
+    const span = Math.max(SPIN_BASE, Object.values(times).reduce((a, b) => a + b, 0));
     const t0 = performance.now();
     const id = window.setInterval(() => {
       const u = (performance.now() - t0) / span;
@@ -222,6 +242,8 @@ export default function App() {
       setSpins((p) => ({ ...p, [slotId]: nextSpin }));
       setRolls((p) => ({ ...p, [slotId]: { slotId, entry, held: false } }));
       setDurations((d) => ({ ...d, [slotId]: spinTimeFor(entry) }));
+      spinQueue.current = [];
+      fullPull.current = false;
       setSpinning((p) => ({ ...p, [slotId]: true }));
     },
     [credits, filters, pools, rolls, rollsWithMode, seed, spins],
@@ -257,19 +279,21 @@ export default function App() {
   }, []);
 
   const onSpinEnd = useCallback((slotId: string) => {
-    setSpinning((prev) => {
-      if (!prev[slotId]) return prev;
-      const next = { ...prev, [slotId]: false };
+    setSpinning((prev) => (prev[slotId] ? { ...prev, [slotId]: false } : prev));
+    sfx.reelLand(Math.max(0, SLOTS.findIndex((s) => s.id === slotId)));
 
-      const index = SLOTS.findIndex((s) => s.id === slotId);
-      sfx.reelLand(Math.max(0, index));
-      // Last reel home: kill the whirr and pay out.
-      if (!Object.values(next).some(Boolean)) {
-        sfx.reelStop();
-        window.setTimeout(() => sfx.jackpot(), 130);
-      }
-      return next;
-    });
+    // Hand off to the next column, or finish the run.
+    const next = spinQueue.current.shift();
+    if (next) {
+      setSpinning({ [next]: true });
+      return;
+    }
+    sfx.reelStop();
+    // Only a full pull earns the fanfare — a single-column spin does not.
+    if (fullPull.current) {
+      fullPull.current = false;
+      window.setTimeout(() => sfx.jackpot(), 130);
+    }
   }, []);
 
   /* ------------------------------------------------------------ effects */

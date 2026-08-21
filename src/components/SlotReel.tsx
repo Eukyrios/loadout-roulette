@@ -16,7 +16,8 @@ export const CELL = 76;
  * The divisor is set so a base-length spin still yields the 22 cells this used
  * to hardcode.
  */
-const fillersFor = (duration: number) => Math.max(10, Math.round(duration / 68));
+const fillersFor = (duration: number) =>
+  Math.max(10, Math.min(96, Math.round(duration / 68)));
 /** How long a single-step nudge takes to slide one cell. */
 const NUDGE_MS = 190;
 
@@ -279,16 +280,46 @@ export function SlotReel({
 
     // Sharpen just before it lands so the winner is legible on arrival.
     timers.current.push(window.setTimeout(() => setBlur(false), Math.max(0, duration - 420)));
-    timers.current.push(
-      window.setTimeout(() => {
-        setMoving(false);
-        setFlash(true);
-        window.setTimeout(() => setFlash(false), 520);
-        cb.current.onSpinEnd();
-      }, duration),
-    );
 
-    return clearTimers;
+    /**
+     * Finish the spin. Fired by the transition ACTUALLY ending rather than a
+     * timer set to the same length.
+     *
+     * The two are not equivalent: a timer at `duration` and the transition it
+     * is shadowing finish in a photo finish, and if the timer wins it sets
+     * `transition: none` on a still-running animation — cancelling it and
+     * clipping the last of the reel's easing. The transition also starts a
+     * frame or two after the timer begins counting, so on a slow machine the
+     * timer wins reliably.
+     */
+    let landed = false;
+    const land = () => {
+      if (landed) return;
+      landed = true;
+      setMoving(false);
+      setFlash(true);
+      timers.current.push(window.setTimeout(() => setFlash(false), 520));
+      cb.current.onSpinEnd();
+    };
+
+    const el = stripRef.current;
+    const onEnd = (e: TransitionEvent) => {
+      if (e.propertyName !== 'transform') return;
+      land();
+    };
+    if (el) {
+      el.addEventListener('transitionend', onEnd);
+      // Fallback only — late enough that it can never cut a running spin short,
+      // but the queue still advances if the event is ever dropped.
+      timers.current.push(window.setTimeout(land, duration + 400));
+    } else {
+      timers.current.push(window.setTimeout(land, duration));
+    }
+
+    return () => {
+      el?.removeEventListener('transitionend', onEnd);
+      clearTimers();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [spinning]);
 

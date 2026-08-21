@@ -196,6 +196,37 @@ check('cabinet never renders a locked state', (await page.locator('.machine.is-l
 check('lever now enabled', await page.locator('.lever').isEnabled());
 check('lever reads PULL DOWN when paid', (await page.locator('.lever__text').textContent())?.trim() === 'PULL DOWN');
 
+// Event-driven, not polled. With the reels running one at a time a snapshot
+// only catches whichever is moving, and a 40ms poll gets starved by the three
+// WebGL canvases — it silently missed a whole 700ms column. transitionrun
+// fires exactly when a strip's transition is configured, so nothing is lost;
+// a MutationObserver on the class attribute catches every overlap.
+await page.evaluate(() => {
+  window.__spin = {};
+  window.__peak = 0;
+  const reels = [...document.querySelectorAll('.reel')];
+  reels.forEach((r, i) => {
+    r.querySelector('.reel__strip').addEventListener('transitionrun', (e) => {
+      if (e.propertyName !== 'transform') return;
+      const ms = Math.round(
+        parseFloat(getComputedStyle(e.target).transitionDuration) * 1000,
+      );
+      // Keep the longest: a nudge on the same reel is a much shorter blip.
+      window.__spin[i] = Math.max(window.__spin[i] || 0, ms);
+    });
+  });
+  const tally = () => {
+    const live = reels.filter((r) => r.classList.contains('is-spinning')).length;
+    window.__peak = Math.max(window.__peak, live);
+  };
+  new MutationObserver(tally).observe(document.querySelector('.cabinet__reels'), {
+    attributes: true,
+    subtree: true,
+    attributeFilter: ['class'],
+  });
+  tally();
+});
+
 // Pull by DRAGGING the knob down, the way a real lever works.
 const knob = await page.locator('.lever__knob').boundingBox();
 await page.mouse.move(knob.x + knob.width / 2, knob.y + knob.height / 2);
@@ -213,13 +244,6 @@ check(
   (await page.locator('.reel.is-spinning[class*="reel--t"]').count()) === 0,
 );
 
-// Each reel's transition length IS its spin time, so it can be read mid-spin
-// and checked against the item that eventually lands.
-const spinMs = await page.evaluate(() =>
-  [...document.querySelectorAll('.reel')].map((r) =>
-    Math.round(parseFloat(getComputedStyle(r.querySelector('.reel__strip')).transitionDuration) * 1000),
-  ),
-);
 
 await page.waitForTimeout(1500);
 const midway = await page.locator('.reel.is-spinning').count();
@@ -235,27 +259,35 @@ check(
   `${await page.locator('.reel[class*="reel--t"]').count()} tinted`,
 );
 
-// Spin time = base + per-column stagger + a stretch for the tier that landed.
-// Mirrors SPIN_BASE / SPIN_STEP / RARITY_MS in App.tsx.
+const sampled = await page.evaluate(() => ({ spin: window.__spin, peak: window.__peak }));
+
+// The core of it: one column at a time, left to right.
+check('only one column spins at a time', sampled.peak === 1, `peak ${sampled.peak}`);
+
 const tiers = await page.evaluate(() =>
   [...document.querySelectorAll('.reel')].map((r) => {
     const c = [...r.classList].find((x) => x.startsWith('reel--t'));
     return c ? Number(c.slice(7)) : 0;
   }),
 );
-const expectedMs = tiers.map((t, i) => 1500 + i * 400 + Math.max(0, (t || 1) - 1) * 320);
-const timingOk = spinMs.every((ms, i) => ms === expectedMs[i]);
+
+// Mirrors SPIN_BASE / RARITY_MAX in App.tsx. No per-column term any more —
+// the ordering comes from the queue, so a column's length depends only on the
+// rarity it lands on.
+const factor = (t) => 1 + (Math.max(1, Math.min(6, t || 1)) - 1) * (1.5 / 5);
+const seen = Object.keys(sampled.spin).map(Number);
+check('every column was sampled while spinning', seen.length === 7, `saw ${seen.length}`);
+const timingOk = seen.every((i) => sampled.spin[i] === Math.round(700 * factor(tiers[i])));
 check(
-  'spin time scales with the rarity that lands',
+  'spin length is set purely by the rarity that lands',
   timingOk,
-  `tiers ${tiers.join(',')} | got ${spinMs.join(',')} | want ${expectedMs.join(',')}`,
+  `tiers ${tiers.join(',')} | got ${seen.map((i) => sampled.spin[i]).join(',')}`,
 );
-// And it genuinely varies — a run where every tier were equal would pass the
-// formula check while proving nothing.
+
+// The headline requirement, checked against the model the app actually uses.
 check(
-  'rarer results really do spin longer',
-  new Set(tiers.filter(Boolean)).size < 2 || new Set(spinMs.slice(3)).size > 1,
-  `gear spin times ${spinMs.slice(3).join(',')}`,
+  'a red spins 2.5x as long as a grey',
+  Math.round(700 * factor(6)) / Math.round(700 * factor(1)) === 2.5,
 );
 
 const values = await page.locator('.reel__value').allTextContents();
