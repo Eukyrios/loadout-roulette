@@ -643,6 +643,15 @@ body {
   border: 1px solid #000;
   box-shadow: inset 0 0 40px rgba(0, 0, 0, 0.9);
   overflow-x: auto;
+  /* Hidden, not disabled: the strip still scrolls, and on a phone the swipe
+     and the column snap both depend on that. The bar itself only draws a grey
+     line under the reels and steals a few pixels of height. */
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* legacy Edge */
+}
+
+.cabinet::-webkit-scrollbar {
+  display: none; /* Chrome, Safari */
 }
 
 .cabinet__glass {
@@ -692,6 +701,12 @@ body {
 }
 .payline__arrow--r {
   right: -3px;
+}
+
+/* Per-column payline, for the phone layout where the cabinet-wide one scrolls
+   out of sight along with the strip. Off at desktop widths. */
+.reel__payline {
+  display: none;
 }
 
 /* reel ----------------------------------------------------------------- */
@@ -1596,10 +1611,35 @@ body {
     padding: 0 12px;
   }
 
-  /* The payline spans the viewport, so it has to sit inside the padding. */
+  /* The cabinet-wide payline is absolutely positioned inside the scroller, so
+     it travels with the strip: past the first column there was nothing marking
+     the payline at all. Swap it for one per column, which stays put because it
+     lives inside the column it belongs to. */
   .payline {
-    left: 12px;
-    right: 12px;
+    display: none;
+  }
+
+  .reel__payline {
+    display: block;
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: var(--cell);
+    height: var(--cell);
+    pointer-events: none;
+    z-index: 2;
+    border-top: 1px solid rgba(var(--accent-rgb), 0.55);
+    border-bottom: 1px solid rgba(var(--accent-rgb), 0.55);
+    background: linear-gradient(90deg, rgba(var(--accent-rgb), 0.09), rgba(var(--accent-rgb), 0.03));
+  }
+
+  /* Pulled inside the frame: the cabinet-wide bar hangs its arrows just off
+     each end, but this one sits in a window that clips. */
+  .reel__payline .payline__arrow--l {
+    left: 2px;
+  }
+  .reel__payline .payline__arrow--r {
+    right: 2px;
   }
 
   .machine__side {

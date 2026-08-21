@@ -386,6 +386,14 @@ export function SlotReel({
           ))}
         </div>
         <div className="reel__shade" aria-hidden="true" />
+        {/* The cabinet's own payline is one bar drawn across all seven columns,
+            which works on desktop but scrolls away with the strip on a phone —
+            where the columns are one per screen, only the first one ever had
+            it. Each column carries its own, shown at that width instead. */}
+        <div className="reel__payline" aria-hidden="true">
+          <span className="payline__arrow payline__arrow--l">▶</span>
+          <span className="payline__arrow payline__arrow--r">◀</span>
+        </div>
       </div>
 
       <p className="reel__value" aria-live="polite">

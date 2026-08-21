@@ -5,6 +5,18 @@ import { sfx } from '../engine/sound';
 const COIN_PX = 58;
 /** How far below the top edge the pointer holds it — the pendulum pivot. */
 const TOP_GRAB = 7;
+/**
+ * Band at the top and bottom of the viewport where a held token drags the page
+ * along with it, and the fastest that drag can go, in px/second at the very
+ * edge.
+ *
+ * A band rather than "once it is past the edge", because on a phone the finger
+ * cannot go past: pressed to the top of the screen the token overshoots by all
+ * of TOP_GRAB pixels, which is nothing to scale a scroll from. Proximity works
+ * the same under a finger and a mouse.
+ */
+const SCROLL_ZONE = 78;
+const SCROLL_MAX = 1500;
 
 interface Props {
   /** The coin slot to drop onto. */
@@ -47,6 +59,8 @@ export function Coin({ targetRef, onInsert, label = 'DF', tone = 'black' }: Prop
   /** Which edges it is currently pinned against, so one hit is one clank. */
   const onEdge = useRef({ x: false, y: false });
   const lastWhoosh = useRef(0);
+  /** Where the token is right now, readable from the frame loop. */
+  const pos = useRef({ x: 0, y: 0 });
 
   const hitTest = useCallback(
     (x: number, y: number) => {
@@ -93,27 +107,26 @@ export function Coin({ targetRef, onInsert, label = 'DF', tone = 'black' }: Prop
       moved.current = true;
       const raw = { x: e.clientX - grabOffset.current.x, y: e.clientY - grabOffset.current.y };
 
-      // Keep the token on screen. Clamping is also how an edge strike is
-      // detected: if the pointer wants to go further than the coin can, it has
-      // hit something.
+      // Keep the token on screen. Sideways, clamping is also how an edge strike
+      // is detected: if the pointer wants to go further than the coin can, it
+      // has hit something.
       const maxX = window.innerWidth - COIN_PX;
       const maxY = window.innerHeight - COIN_PX;
       const x = Math.max(0, Math.min(maxX, raw.x));
       const y = Math.max(0, Math.min(maxY, raw.y));
 
       const hitX = raw.x < 0 || raw.x > maxX;
-      const hitY = raw.y < 0 || raw.y > maxY;
       const speed = Math.abs(vel.current);
+      pos.current = { x, y };
 
-      // Latched per axis: while it stays jammed against a wall it should not
-      // machine-gun clanks, only fire again once it has come away.
+      // Latched, so that while it stays jammed against a wall it does not
+      // machine-gun clanks and only fires again once it has come away. The
+      // vertical edge is handled in the frame loop, since a page that runs out
+      // of scroll under a stationary finger is still a collision.
       if (hitX && !onEdge.current.x) {
         burst(x + COIN_PX / 2, y + COIN_PX / 2, raw.x < 0 ? 1 : -1, 0, speed);
       }
-      if (hitY && !onEdge.current.y) {
-        burst(x + COIN_PX / 2, y + COIN_PX / 2, 0, raw.y < 0 ? 1 : -1, speed);
-      }
-      onEdge.current = { x: hitX, y: hitY };
+      onEdge.current.x = hitX;
 
       // Horizontal speed drives the sway. Blended rather than replaced so a
       // single jittery sample cannot snap the coin sideways.
@@ -150,8 +163,13 @@ export function Coin({ targetRef, onInsert, label = 'DF', tone = 'black' }: Prop
      * cursor and overshoots back.
      */
     let raf = 0;
-    const spring = () => {
+    let last = performance.now();
+    const spring = (now: number) => {
       raf = requestAnimationFrame(spring);
+      // Capped, so a backgrounded tab does not resume with one enormous step.
+      const dt = Math.min(0.05, Math.max(0, (now - last) / 1000));
+      last = now;
+
       const target = Math.max(-24, Math.min(24, vel.current * 1.4));
       tilt.current += (target - tilt.current) * 0.22;
       vel.current *= 0.82; // no pointer movement, no drive — so it recentres
@@ -160,6 +178,49 @@ export function Coin({ targetRef, onInsert, label = 'DF', tone = 'black' }: Prop
       if (Math.abs(tilt.current - shown.current) > 0.15) {
         shown.current = tilt.current;
         setSway(tilt.current);
+      }
+
+      /**
+       * Vertically the screen edge is not a wall — it is a window onto a longer
+       * page. Carry the token into the band at the top or bottom and it drags
+       * the view along with it, faster the closer it gets, so you can walk the
+       * whole page with the token in hand.
+       *
+       * Driven from here rather than from the pointer so that holding it
+       * against the edge keeps the page moving; a scroll that only advanced
+       * while your finger did would stall the moment you ran out of screen.
+       *
+       * Squared, so the outer edge of the band is a gentle creep and only the
+       * last few pixels really move — otherwise the page lurches the instant
+       * the token strays anywhere near the top.
+       */
+      const { x, y } = pos.current;
+      const maxY = window.innerHeight - COIN_PX;
+      const up = Math.min(1, (SCROLL_ZONE - y) / SCROLL_ZONE);
+      const down = Math.min(1, (y - (maxY - SCROLL_ZONE)) / SCROLL_ZONE);
+      const dir = up > 0 ? -1 : down > 0 ? 1 : 0;
+      const t = up > 0 ? up : down;
+
+      // Only after the pointer has actually moved: grabbing a token that is
+      // already sitting near the top of the screen should not send the page
+      // flying before the drag has begun.
+      if (dir !== 0 && moved.current) {
+        const before = window.scrollY;
+        window.scrollBy(0, dir * SCROLL_MAX * t * t * dt);
+        const stuck = Math.abs(window.scrollY - before) < 0.5;
+        // The page has nothing left to give AND the token is hard against the
+        // glass — only then has it actually struck something.
+        const pinned = dir < 0 ? y <= 0.5 : y >= maxY - 0.5;
+        if (stuck && pinned) {
+          if (!onEdge.current.y) {
+            burst(x + COIN_PX / 2, y + COIN_PX / 2, 0, -dir, Math.abs(vel.current));
+          }
+          onEdge.current.y = true;
+        } else {
+          onEdge.current.y = false;
+        }
+      } else {
+        onEdge.current.y = false;
       }
     };
     raf = requestAnimationFrame(spring);
@@ -173,7 +234,7 @@ export function Coin({ targetRef, onInsert, label = 'DF', tone = 'black' }: Prop
       window.removeEventListener('pointerup', up);
       window.removeEventListener('pointercancel', up);
     };
-  }, [isDragging, burst, hitTest, insert]);
+  }, [isDragging, hitTest, insert]);
 
   if (gone) return <div className="coin coin--spent" aria-hidden="true" />;
 
@@ -235,6 +296,8 @@ export function Coin({ targetRef, onInsert, label = 'DF', tone = 'black' }: Prop
         grabOffset.current = { x: r.width / 2, y: TOP_GRAB };
         moved.current = false;
         lastX.current = r.left;
+        pos.current = { x: r.left, y: r.top };
+        onEdge.current = { x: false, y: false };
         vel.current = 0;
         tilt.current = 0;
         setSway(0);

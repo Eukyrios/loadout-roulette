@@ -66,7 +66,32 @@ const apronY = (r: number) =>
   Y_APRON_IN +
   ((r - R_POCKET_OUT) / (R_APRON - R_POCKET_OUT)) * (Y_APRON_OUT - Y_APRON_IN);
 
-const CAM_TILT = (24 * Math.PI) / 180; // from straight down
+/**
+ * The camera has two poses, both measured as an angle off straight down.
+ *
+ * While the wheel is turning it sits back at an angle, so you are looking
+ * ACROSS the bowl and the ball has some depth to run through. Once the ball is
+ * home it rises to almost overhead and closes in on the winning pocket, which
+ * is the moment you actually want to read.
+ *
+ * The rolling pose is as far back as it can go before the far rim starts
+ * hiding the ball track: the rim stands ~0.6 above the track, so it eats
+ * 0.6·tan(tilt) of radius, and at 44° that reaches r ≈ 6.3 — still outside the
+ * ball's 5.7.
+ */
+const CAM_TILT_ROLL = (44 * Math.PI) / 180;
+const CAM_TILT_LANDED = (12 * Math.PI) / 180;
+/**
+ * The close-up, as a window on the bowl: half-width of what stays in frame,
+ * and how far the frame slides from the middle towards the winning pocket.
+ * Both deliberately gentle — pulled all the way onto the ball, the bowl gets
+ * cropped in half and the wheel stops reading as a wheel.
+ */
+const ZOOM_R = 6.3;
+const ZOOM_BIAS = 0.45;
+/** Seconds to move into the close-up, and to swing back out for a new roll. */
+const CAM_IN = 1.6;
+const CAM_OUT = 0.85;
 const CAM_FOV = 38;
 /** Outer silhouette of the bowl: rim radius plus a sliver of air. */
 const FIT_RADIUS = R_BOWL + 0.25;
@@ -241,9 +266,14 @@ function buildWheel(): { group: THREE.Group; dispose: () => void } {
   dome.castShadow = true;
   group.add(dome);
 
-  const spindleGeo = keep(new THREE.ConeGeometry(0.16, 1.5, 20));
+  // Only the part clear of the dome reads as a spike, and at the old 1.5 that
+  // was 0.8 of gold standing proud in the middle of the wheel — the first
+  // thing your eye went to. Halved, and now it also sits under FIT_HEIGHT
+  // instead of poking out through the top of the framing box.
+  const SPINDLE_H = 1.1;
+  const spindleGeo = keep(new THREE.ConeGeometry(0.16, SPINDLE_H, 20));
   const spindle = new THREE.Mesh(spindleGeo, hubMat);
-  spindle.position.y = Y_POCKET + 1.25;
+  spindle.position.y = Y_POCKET + 0.5 + SPINDLE_H / 2;
   spindle.castShadow = true;
   group.add(spindle);
 
@@ -433,6 +463,18 @@ export const RouletteWheel = forwardRef<RouletteHandle, Props>(function Roulette
     let resolveSpin: (() => void) | null = null;
     const duration = reduced ? 1400 : SPIN_MS;
 
+    /**
+     * Camera pose, 0 = laid back and wide, 1 = overhead and closed in on the
+     * pocket. Everything the camera does is a function of this one number, so
+     * a roll that interrupts a settle just reverses the same journey.
+     */
+    let camU = 0;
+    let camTarget = 0;
+    /** Forces one more fit after the pose has come to rest, or on a resize. */
+    let camDirty = true;
+    let viewW = 1;
+    let viewH = 1;
+
     const placeBall = () => {
       ball.position.set(
         ballRadius * Math.cos(ballAngle),
@@ -460,6 +502,11 @@ export const RouletteWheel = forwardRef<RouletteHandle, Props>(function Roulette
           const base = pocketLocal + phiFinal - ballStart;
           const wrapped = ((base % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
           ballDelta = wrapped - BALL_TURNS * Math.PI * 2;
+
+          // Swing back out to the rolling pose. It travels while the ball does,
+          // so a re-roll eases away from the previous close-up rather than
+          // cutting back to the wide shot.
+          camTarget = 0;
 
           cb.current.onSpinStart?.();
         }),
@@ -523,6 +570,7 @@ export const RouletteWheel = forwardRef<RouletteHandle, Props>(function Roulette
           landed = true;
           ballRadius = R_REST;
           ballY = Y_POCKET + BALL_R;
+          camTarget = 1;
           cb.current.onResult?.(Math.round((pocketLocal - STEP / 2) / STEP) % POCKET_COUNT);
           resolveSpin?.();
           resolveSpin = null;
@@ -535,6 +583,42 @@ export const RouletteWheel = forwardRef<RouletteHandle, Props>(function Roulette
 
       wheel.group.rotation.y = phi;
       placeBall();
+
+      /* ---- camera pose ------------------------------------------------
+       * Reframed every frame rather than only on resize. The two poses differ
+       * in both angle and how much of the bowl is in shot, and running them
+       * through the same fit keeps the wheel correctly composed at every point
+       * in between — which hand-interpolating a camera position would not.
+       */
+      if (!reduced) {
+        const span = camTarget > camU ? CAM_IN : CAM_OUT;
+        const step = dt / span;
+        camU = camTarget > camU ? Math.min(camTarget, camU + step) : Math.max(camTarget, camU - step);
+      }
+      const e = camU * camU * (3 - 2 * camU);
+      if (e > 0 || camDirty) {
+        camDirty = e > 0;
+        // The wheel keeps drifting after the ball lands, so the close-up tracks
+        // the ball's live position — it stays centred instead of slowly
+        // sliding out of the shot it just moved in for.
+        const half = FIT_RADIUS + (ZOOM_R - FIT_RADIUS) * e;
+        const cx = ball.position.x * e * ZOOM_BIAS;
+        const cz = ball.position.z * e * ZOOM_BIAS;
+        frameCamera(
+          camera,
+          {
+            min: new THREE.Vector3(cx - half, -0.6, cz - half),
+            max: new THREE.Vector3(cx + half, FIT_HEIGHT, cz + half),
+          },
+          {
+            tilt: CAM_TILT_ROLL + (CAM_TILT_LANDED - CAM_TILT_ROLL) * e,
+            width: viewW,
+            height: viewH,
+            margin: 1.03,
+          },
+        );
+      }
+
       renderer.render(scene, camera);
     };
     raf = requestAnimationFrame(frame);
@@ -546,17 +630,11 @@ export const RouletteWheel = forwardRef<RouletteHandle, Props>(function Roulette
       renderer.setSize(w, h, false);
       camera.aspect = w / h;
       camera.updateProjectionMatrix();
-
-      // Slight tilt off vertical — enough to read as 3D, shallow enough that
-      // the far rim never hides the near pockets.
-      frameCamera(
-        camera,
-        {
-          min: new THREE.Vector3(-FIT_RADIUS, -0.6, -FIT_RADIUS),
-          max: new THREE.Vector3(FIT_RADIUS, FIT_HEIGHT, FIT_RADIUS),
-        },
-        { tilt: CAM_TILT, width: w, height: h, margin: 1.03 },
-      );
+      // The fit itself belongs to the frame loop, which owns the pose; this
+      // just hands it the new viewport and asks for one.
+      viewW = w;
+      viewH = h;
+      camDirty = true;
     };
     resize();
     const ro = new ResizeObserver(resize);

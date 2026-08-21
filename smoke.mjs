@@ -464,6 +464,136 @@ check(
   JSON.stringify(restShape),
 );
 
+/* ------------------------------------------- coin at the screen edges */
+
+/**
+ * Carrying the token into the top or bottom of the screen drags the page along
+ * with it; it only strikes something once the page itself has run out. Left and
+ * right stay hard walls.
+ *
+ * Runs on its own short page so the document is guaranteed to overflow with the
+ * token still on screen — the main run's 1700px-tall viewport barely scrolls.
+ */
+{
+  const p = await browser.newPage({ viewport: { width: 1100, height: 700 } });
+  await p.goto('http://localhost:4321/', { waitUntil: 'networkidle' });
+
+  // Sparks are torn down after 560ms and the scroll runs off a frame loop that
+  // SwiftShader starves, so polling for a count races badly. Every burst is
+  // logged as it happens instead, with where it struck and where the page was.
+  await p.evaluate(() => {
+    window.__bursts = [];
+    new MutationObserver((recs) => {
+      for (const r of recs) for (const n of r.addedNodes) {
+        if (n.nodeType !== 1 || !n.classList?.contains('sparks')) continue;
+        const first = n.querySelector('.spark');
+        window.__bursts.push({
+          y: first ? Math.round(parseFloat(first.style.top)) : -1,
+          scrollY: Math.round(window.scrollY),
+          maxScroll: Math.round(document.documentElement.scrollHeight - window.innerHeight),
+        });
+      }
+    }).observe(document.body, { childList: true, subtree: true });
+  });
+
+  const bursts = () => p.evaluate(() => window.__bursts);
+  const top = () => p.evaluate(() => Math.round(window.scrollY));
+  const end = await p.evaluate(() =>
+    Math.round(document.documentElement.scrollHeight - window.innerHeight));
+  check('page overflows a short viewport', end > 300, `max=${end}`);
+
+  await p.locator('.legend__item--black').click();
+  await p.waitForSelector('.coin', { timeout: 8000 });
+  await p.waitForTimeout(600);
+
+  // Park with room in both directions and the coin still on screen: scrolling
+  // far enough to sit mid-document would take the coin off the top with it.
+  await p.evaluate(() => {
+    const r = document.querySelector('.coin').getBoundingClientRect();
+    window.scrollTo(0, Math.round(r.top + window.scrollY - 120));
+  });
+  await p.waitForTimeout(150);
+  const parked = await top();
+  check('parked with room above and below', parked > 100 && parked < end - 100, `${parked} of ${end}`);
+
+  const cb = await p.locator('.coin').boundingBox();
+  const cx = cb.x + cb.width / 2;
+  await p.mouse.move(cx, cb.y + 4);
+  await p.mouse.down();
+  await p.waitForTimeout(60);
+
+  await p.mouse.move(cx, 2, { steps: 14 });
+  await p.waitForFunction(() => window.scrollY === 0, null, { timeout: 20000 }).catch(() => {});
+  check('holding the token at the top drags the page up', (await top()) === 0, `${parked} -> ${await top()}`);
+  const coinTop = await p.evaluate(() => Math.round(document.querySelector('.coin').getBoundingClientRect().top));
+  check('token stays inside the viewport', coinTop >= -4 && coinTop < 60, `top=${coinTop}`);
+
+  await p.waitForFunction(() => window.__bursts.length > 0, null, { timeout: 8000 }).catch(() => {});
+  const up = await bursts();
+  check('token strikes the top only once the page runs out',
+    up.length === 1 && up[0].scrollY === 0 && up[0].y < 120, JSON.stringify(up));
+
+  await p.mouse.move(cx, 690, { steps: 16 });
+  await p.waitForFunction((m) => window.scrollY >= m - 2, end, { timeout: 30000 }).catch(() => {});
+  check('holding the token at the bottom drags the page down', (await top()) >= end - 2, `${await top()} / ${end}`);
+
+  await p.waitForFunction((n) => window.__bursts.length > n, up.length, { timeout: 8000 }).catch(() => {});
+  const down = (await bursts()).slice(up.length);
+  check('token strikes the bottom only once the page runs out',
+    down.length > 0 && down.every((b) => b.scrollY >= b.maxScroll - 2) && down.some((b) => b.y > 560),
+    JSON.stringify(down));
+
+  const beforeX = (await bursts()).length;
+  await p.mouse.move(-40, 400, { steps: 10 });
+  await p.waitForFunction((n) => window.__bursts.length > n, beforeX, { timeout: 5000 }).catch(() => {});
+  check('left edge is still a hard wall', (await bursts()).length > beforeX);
+  // The rect includes the 1.1x drag scale, so the visual left sits ~2.9px under.
+  const coinLeft = await p.evaluate(() => Math.round(document.querySelector('.coin').getBoundingClientRect().left));
+  check('token clamped at the left edge', coinLeft >= -4 && coinLeft < 4, `left=${coinLeft}`);
+
+  await p.mouse.up();
+  await p.close();
+}
+
+/* --------------------------------------------- payline on a phone */
+
+/**
+ * The cabinet-wide payline is absolutely positioned inside the horizontal
+ * scroller, so it travels with the strip — on a phone, where the columns are
+ * one per screen, only the first column ever had a payline under it. Each
+ * column now carries its own.
+ */
+{
+  const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+  const p = await ctx.newPage();
+  await p.goto('http://localhost:4321/', { waitUntil: 'networkidle' });
+  await p.waitForTimeout(500);
+  const lines = await p.evaluate(() => {
+    const global = getComputedStyle(document.querySelector('.payline')).display;
+    return {
+      global,
+      reels: [...document.querySelectorAll('.reel')].map((r) => {
+        const pl = r.querySelector('.reel__payline');
+        const win = r.querySelector('.reel__window').getBoundingClientRect();
+        const b = pl?.getBoundingClientRect();
+        return {
+          shown: pl ? getComputedStyle(pl).display : 'missing',
+          top: b ? Math.round(b.top - win.top) : -1,
+          arrows: r.querySelectorAll('.reel__payline .payline__arrow').length,
+        };
+      }),
+    };
+  });
+  check('cabinet-wide payline is off on a phone', lines.global === 'none', lines.global);
+  check('every column has its own payline with both arrows',
+    lines.reels.length === 7 && lines.reels.every((r) => r.shown === 'block' && r.arrows === 2),
+    JSON.stringify(lines.reels));
+  check('paylines all sit on the same row',
+    new Set(lines.reels.map((r) => r.top)).size === 1 && lines.reels[0].top > 0,
+    JSON.stringify(lines.reels.map((r) => r.top)));
+  await ctx.close();
+}
+
 /* ------------------------------------------------------------ drag coin */
 
 await page.locator('.legend__item--black').click();
