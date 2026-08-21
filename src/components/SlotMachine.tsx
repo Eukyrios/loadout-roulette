@@ -17,6 +17,8 @@ interface Props {
   credits: number;
   /** Difficulty of the token currently in the machine. */
   creditMode: Entry | null;
+  /** Name of the preset the current filters match, or 'Custom'. */
+  preset: string;
   onHold: (slotId: string) => void;
   onSpin: (slotId: string) => void;
   onNudge: (slotId: string, dir: -1 | 1) => void;
@@ -38,6 +40,7 @@ export const SlotMachine = forwardRef<HTMLDivElement, Props>(function SlotMachin
     durations,
     credits,
     creditMode,
+    preset,
     onHold,
     onSpin,
     onNudge,
@@ -119,11 +122,17 @@ export const SlotMachine = forwardRef<HTMLDivElement, Props>(function SlotMachin
           <span className="machine__badge-sub">Delta Force</span>
           <span className="machine__badge-main">2 · Roll your kit</span>
         </div>
-        <div className={`machine__mode machine__mode--${tone}`}>
-          <span className="machine__mode-label">Difficulty</span>
-          <span className="machine__mode-value">
-            {creditMode ? creditMode.name : 'No token'}
-          </span>
+        <div className="machine__readouts">
+          <div className="machine__mode machine__mode--preset">
+            <span className="machine__mode-label">Preset</span>
+            <span className="machine__mode-value">{preset}</span>
+          </div>
+          <div className={`machine__mode machine__mode--${tone}`}>
+            <span className="machine__mode-label">Difficulty</span>
+            <span className="machine__mode-value">
+              {creditMode ? creditMode.name : 'No token'}
+            </span>
+          </div>
         </div>
       </div>
 

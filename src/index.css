@@ -509,6 +509,26 @@ body {
 }
 
 /* Reports the difficulty the inserted token carries, not a credit count. */
+/* Preset and difficulty sit together at the right of the crown. */
+.machine__readouts {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+  min-width: 0;
+}
+
+/* Neutral steel, so it never competes with the difficulty readout beside it —
+   that one is colour-coded and carries the more important state. */
+.machine__mode--preset {
+  border-color: var(--line-2);
+}
+
+.machine__mode--preset .machine__mode-value {
+  font-size: 14px;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
 .machine__mode {
   display: flex;
   flex-direction: column;

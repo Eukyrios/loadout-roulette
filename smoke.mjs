@@ -72,8 +72,14 @@ const TONE = { Easy: 'coin--red', Normal: 'coin--black', Hard: 'coin--green' };
 
 const wonMode = () => page.locator('.legend__item.is-won .legend__name').textContent();
 const paid = async () => (await page.locator('.coinslot__text').textContent())?.trim() === 'Inserted';
+// Scoped to the difficulty block: the crown now carries a preset readout too,
+// and a bare .machine__mode-value matches both.
 const modeIndicator = async () =>
-  (await page.locator('.machine__mode-value').textContent())?.trim();
+  (
+    await page
+      .locator('.machine__readouts .machine__mode:not(.machine__mode--preset) .machine__mode-value')
+      .textContent()
+  )?.trim();
 
 await page.goto('http://localhost:4321/', { waitUntil: 'networkidle' });
 
@@ -215,9 +221,14 @@ await page.evaluate(() => {
       window.__spin[i] = Math.max(window.__spin[i] || 0, ms);
     });
   });
+  window.__frames = [];
   const tally = () => {
     const live = reels.filter((r) => r.classList.contains('is-spinning')).length;
     window.__peak = Math.max(window.__peak, live);
+    window.__frames.push({
+      spinning: reels.map((r) => (r.classList.contains('is-spinning') ? 1 : 0)).join(''),
+      values: reels.map((r) => r.querySelector('.reel__value').textContent.trim()),
+    });
   };
   new MutationObserver(tally).observe(document.querySelector('.cabinet__reels'), {
     attributes: true,
@@ -259,7 +270,27 @@ check(
   `${await page.locator('.reel[class*="reel--t"]').count()} tinted`,
 );
 
-const sampled = await page.evaluate(() => ({ spin: window.__spin, peak: window.__peak }));
+const sampled = await page.evaluate(() => ({
+  spin: window.__spin,
+  peak: window.__peak,
+  frames: window.__frames,
+}));
+
+// Regression: a column still waiting its turn must not already be showing its
+// result. Publishing every result at pull time made the queued columns snap to
+// their final item and then roll around to an answer they were already
+// displaying.
+let leaked = null;
+for (const f of sampled.frames) {
+  const spinningAt = f.spinning.indexOf('1');
+  if (spinningAt === -1) continue;
+  for (let i = spinningAt + 1; i < f.values.length; i++) {
+    if (f.values[i] !== '—') {
+      leaked ??= `col ${i} showed "${f.values[i]}" while col ${spinningAt} was still spinning`;
+    }
+  }
+}
+check('no column reveals its result before it spins', leaked === null, leaked ?? '');
 
 // The core of it: one column at a time, left to right.
 check('only one column spins at a time', sampled.peak === 1, `peak ${sampled.peak}`);
@@ -572,6 +603,37 @@ for (const gone of ['Enable sounds', 'Instant spin', 'Show nudge arrows']) {
 }
 // Presets are reachable from both places — the quick bar and Settings.
 check('presets are in settings', (await page.locator('.panel__body .preset').count()) === 5);
+
+/* ------------------------------------------------- preset readout */
+
+// The crown reports which preset the filters currently match. It is DERIVED
+// from the filter state, not from the last button clicked, so it has to track
+// a manual edit too — remembering the click would leave the badge claiming a
+// preset the filters no longer match.
+const presetReadout = async () =>
+  (await page.locator('.machine__mode--preset .machine__mode-value').textContent()).trim();
+
+check(
+  'preset readout sits left of the difficulty one',
+  await page.evaluate(() => {
+    const p = document.querySelector('.machine__mode--preset');
+    const d = document.querySelector('.machine__readouts .machine__mode:not(.machine__mode--preset)');
+    return !!p && !!d && p.getBoundingClientRect().left < d.getBoundingClientRect().left;
+  }),
+);
+
+for (const name of ['Budget run', 'Full send', 'Gremlin', 'Everything']) {
+  await page.locator('.panel__body .preset', { hasText: name }).first().click();
+  await page.waitForTimeout(160);
+  check(`preset readout follows "${name}"`, (await presetReadout()) === name, await presetReadout());
+}
+
+// Nudge a single bound by hand — the readout must stop claiming a preset.
+await page.getByRole('button', { name: 'Increase Helmet minimum Tier' }).click();
+await page.waitForTimeout(200);
+check('preset readout drops to Custom when edited', (await presetReadout()) === 'Custom', await presetReadout());
+await page.locator('.panel__body .preset', { hasText: 'Everything' }).first().click();
+await page.waitForTimeout(160);
 
 // One titled section per filtered category.
 const blockTitles = (await page.locator('.panel__body .panel__h').allTextContents()).map((t) => t.trim());

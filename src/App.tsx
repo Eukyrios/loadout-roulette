@@ -15,7 +15,7 @@ import { SLOTS } from './data/slots';
 import type { Entry, FilterState, Roll } from './data/types';
 import { defaultFilterState, resolvePools } from './engine/filters';
 import { usePersisted } from './engine/persist';
-import { applyPreset } from './engine/presets';
+import { PRESETS, applyPreset } from './engine/presets';
 import { randomSeedCode } from './engine/rng';
 import { emptySlots, rollAll, rollDie, rollPocket, rollSlot, rollStick } from './engine/roll';
 import { sfx } from './engine/sound';
@@ -106,6 +106,8 @@ export default function App() {
   const coinSlotRef = useRef<HTMLDivElement>(null);
   /** Columns still waiting to spin, in order. Drained by onSpinEnd. */
   const spinQueue = useRef<string[]>([]);
+  /** Results held back until each column's own spin begins. */
+  const pendingRolls = useRef<Record<string, Roll>>({});
   /** True while a lever pull is running, so only that earns the jackpot. */
   const fullPull = useRef(false);
 
@@ -124,6 +126,27 @@ export default function App() {
     [filters, rollsWithMode, mode],
   );
   const anySpinning = Object.values(spinning).some(Boolean);
+
+  /**
+   * Which preset the current filters correspond to, DERIVED rather than
+   * remembered. Storing the last preset clicked would go stale the moment a
+   * single tier bound was nudged afterwards — the badge would keep claiming
+   * "Full send" over filters that no longer matched it. Comparing the actual
+   * state means it drops to "Custom" the instant it stops being true, and it
+   * survives a reload from storage.
+   */
+  const activePreset = useMemo(() => {
+    // Key order is not guaranteed across storage round-trips, so canonicalise.
+    const canon = (f: FilterState) =>
+      JSON.stringify({
+        ranges: Object.entries(f.ranges).sort(([a], [b]) => (a < b ? -1 : 1)),
+        multi: Object.entries(f.multi)
+          .sort(([a], [b]) => (a < b ? -1 : 1))
+          .map(([k, v]) => [k, [...v].sort()]),
+      });
+    const now = canon(filters);
+    return PRESETS.find((p) => canon(applyPreset(p.id)) === now)?.name ?? 'Custom';
+  }, [filters]);
   // Two ways to spend a token: the lever re-rolls every column, or a single
   // column's Spin button re-rolls just that one. Hold and the nudge arrows are
   // free — they only rearrange what you already have.
@@ -202,7 +225,6 @@ export default function App() {
     // Rolled up front so each reel's spin time can be set from the item it is
     // actually going to land on.
     const nextRolls = rollAll(seed, nextSpins, filters, rollsWithMode);
-    setRolls(nextRolls);
 
     // One reel at a time, left to right: each starts only when the one before
     // it has landed. The queue — not a set of staggered timers — is what
@@ -215,9 +237,27 @@ export default function App() {
     setDurations(times);
 
     fullPull.current = true;
-    spinQueue.current = live.slice(1).map((s) => s.id);
     if (live.length === 0) return;
-    setSpinning({ [live[0].id]: true });
+
+    // A queued reel must NOT be told its result yet. Publishing every result at
+    // pull time meant the six columns still waiting had nothing left to hide:
+    // each snapped straight to its final item and then rolled around to the
+    // answer it was already showing. So the results are staged here, and each
+    // reel is handed its own only as its spin starts.
+    pendingRolls.current = Object.fromEntries(live.map((s) => [s.id, nextRolls[s.id]]));
+    spinQueue.current = live.slice(1).map((s) => s.id);
+
+    const first = live[0].id;
+    const held = new Set(live.map((s) => s.id));
+    setRolls(() => {
+      const out: Record<string, Roll> = { ...nextRolls };
+      // Everything not about to spin can update immediately; the queued ones
+      // keep showing what they had until their turn.
+      for (const id of held) out[id] = rolls[id] ?? { slotId: id, entry: null, held: false };
+      out[first] = nextRolls[first];
+      return out;
+    });
+    setSpinning({ [first]: true });
 
     sfx.lever();
     sfx.reelStart();
@@ -285,6 +325,10 @@ export default function App() {
     // Hand off to the next column, or finish the run.
     const next = spinQueue.current.shift();
     if (next) {
+      // Result and spin start land in the same batch, so the reel never gets a
+      // render where it knows its answer but is not yet moving.
+      const staged = pendingRolls.current[next];
+      if (staged) setRolls((p) => ({ ...p, [next]: staged }));
       setSpinning({ [next]: true });
       return;
     }
@@ -482,6 +526,7 @@ export default function App() {
           durations={durations}
           credits={credits}
           creditMode={creditMode}
+          preset={activePreset}
           anySpinning={anySpinning}
           onHold={toggleHold}
           onSpin={spinOne}
