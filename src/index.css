@@ -673,6 +673,14 @@ body {
   display: flex;
   gap: 8px;
   min-width: max-content;
+  /* Seven fixed-width columns rarely add up to the cabinet's exact width, and
+     packed to the start the leftover all piled up on the right — 13px of air
+     on the left against 39px on the right. Centred, it splits evenly.
+     `safe` so that if the columns ever DO overflow, this falls back to packing
+     from the start; centred overflow would put the first column out of reach
+     off the left-hand edge, where nothing can scroll to it. */
+  justify-content: center;
+  justify-content: safe center;
 }
 
 .payline {
@@ -1681,6 +1689,9 @@ body {
 
   .cabinet__reels {
     gap: 0;
+    /* One column per screen: this row overflows by design, and the snap
+       scroller needs it packed from the start. */
+    justify-content: flex-start;
     /* The desktop rule is min-width: max-content, which is circular against a
        percentage child: the row grows to fit all seven reels, then each reel's
        100% resolves against THAT. Result was a 1304px column in a 330px

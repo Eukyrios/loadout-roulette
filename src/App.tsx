@@ -230,8 +230,10 @@ export default function App() {
   /* --------------------------------------------------------- the reels */
 
   const pull = useCallback(() => {
+    // A token UNLOCKS the machine, it does not buy one go. Charging per pull
+    // meant every re-roll sent you back to the wheel for another coin, and the
+    // per-column Spin buttons greyed out the instant you used one of them.
     if (credits === 0 || anySpinning) return;
-    setCredits((c) => c - 1);
 
     const nextSpins = { ...spins };
     for (const slot of SLOTS) {
@@ -290,10 +292,8 @@ export default function App() {
 
   const spinOne = useCallback(
     (slotId: string) => {
-      // Costs a token, exactly like the lever. Gating without charging would
-      // make the first coin a permanent unlock and the token meaningless.
-      if (credits === 0 || pools[slotId]?.length === 0) return;
-      setCredits((c) => c - 1);
+      // Free once the machine is loaded, exactly like the lever.
+      if (credits === 0 || anySpinning || pools[slotId]?.length === 0) return;
       const nextSpin = (spins[slotId] ?? 0) + 1;
       const entry = rollSlot(slotId, seed, nextSpin, filters, rollsWithMode, rolls[slotId]?.entry);
       setSpins((p) => ({ ...p, [slotId]: nextSpin }));
@@ -303,7 +303,7 @@ export default function App() {
       fullPull.current = false;
       setSpinning((p) => ({ ...p, [slotId]: true }));
     },
-    [credits, filters, pools, rolls, rollsWithMode, seed, spins],
+    [anySpinning, credits, filters, pools, rolls, rollsWithMode, seed, spins],
   );
 
   const nudge = useCallback(

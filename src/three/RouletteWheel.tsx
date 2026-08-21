@@ -491,32 +491,44 @@ export const RouletteWheel = forwardRef<RouletteHandle, Props>(function Roulette
       );
     };
 
+    /** Set while the camera is pulling back out of a close-up before a roll. */
+    let queued = -1;
+
+    const beginSpin = (pocket: number) => {
+      pocketLocal = (pocket + 0.5) * STEP;
+      phiAtStart = phi;
+      ballStart = ballAngle;
+      spinStart = performance.now();
+      spinning = true;
+      landed = false;
+      lastArc = -1;
+
+      // Where the wheel will be when the ball lands.
+      const phiFinal = phiAtStart + WHEEL_TURNS * Math.PI * 2;
+      // Shortest forward offset to the winning pocket, then wind the ball
+      // backwards past it a whole number of turns so it spins the other way.
+      const base = pocketLocal + phiFinal - ballStart;
+      const wrapped = ((base % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
+      ballDelta = wrapped - BALL_TURNS * Math.PI * 2;
+
+      cb.current.onSpinStart?.();
+    };
+
     api.current = {
       spin: (pocket: number) =>
         new Promise<void>((resolve) => {
-          pocketLocal = (pocket + 0.5) * STEP;
-          phiAtStart = phi;
-          ballStart = ballAngle;
-          spinStart = performance.now();
-          spinning = true;
-          landed = false;
-          lastArc = -1;
           resolveSpin = resolve;
-
-          // Where the wheel will be when the ball lands.
-          const phiFinal = phiAtStart + WHEEL_TURNS * Math.PI * 2;
-          // Shortest forward offset to the winning pocket, then wind the ball
-          // backwards past it a whole number of turns so it spins the other way.
-          const base = pocketLocal + phiFinal - ballStart;
-          const wrapped = ((base % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
-          ballDelta = wrapped - BALL_TURNS * Math.PI * 2;
-
-          // Swing back out to the rolling pose. It travels while the ball does,
-          // so a re-roll eases away from the previous close-up rather than
-          // cutting back to the wide shot.
+          // Always head back to the rolling pose first.
           camTarget = 0;
-
-          cb.current.onSpinStart?.();
+          if (camU > 0) {
+            // Coming off a close-up: let the camera travel all the way back to
+            // where the last roll started from BEFORE the ball moves, so a
+            // re-roll opens from the same shot every time instead of starting
+            // mid-swing from wherever the last one left the camera.
+            queued = pocket;
+          } else {
+            beginSpin(pocket);
+          }
         }),
     };
 
@@ -598,11 +610,23 @@ export const RouletteWheel = forwardRef<RouletteHandle, Props>(function Roulette
        * through the same fit keeps the wheel correctly composed at every point
        * in between — which hand-interpolating a camera position would not.
        */
-      if (!reduced) {
-        const span = camTarget > camU ? CAM_IN : CAM_OUT;
+      {
+        // Reduced motion shortens the move rather than cancelling it. Cutting
+        // it entirely leaves the wheel dead still on any machine with system
+        // animations turned off — which is most Windows boxes people have
+        // tuned — and this camera is the whole point of the stage.
+        const span = camTarget > camU ? (reduced ? 0.45 : CAM_IN) : reduced ? 0.3 : CAM_OUT;
         const step = dt / span;
         camU = camTarget > camU ? Math.min(camTarget, camU + step) : Math.max(camTarget, camU - step);
       }
+
+      // The ball waits for the camera to finish coming back before it goes.
+      if (queued >= 0 && camU <= 0) {
+        const p = queued;
+        queued = -1;
+        beginSpin(p);
+      }
+
       const e = camU * camU * (3 - 2 * camU);
       if (e > 0 || camDirty) {
         camDirty = e > 0;

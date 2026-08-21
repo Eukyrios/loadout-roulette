@@ -108,14 +108,14 @@ check(
   await page.locator('.reel').nth(2).locator('.btn--hold').isEnabled(),
 );
 check(
-  'column spin is locked without a token',
+  'column spin is locked before any token',
   await page.locator('.reel').nth(2).locator('.reel__respin').isDisabled(),
 );
 check(
   'column spin button reads Spin',
   (await page.locator('.reel').nth(2).locator('.reel__respin').textContent()).trim() === 'Spin',
 );
-check('lever disabled before payment', await page.locator('.lever').isDisabled());
+check('lever disabled before any token', await page.locator('.lever').isDisabled());
 check('indicator shows no token', (await modeIndicator()) === 'No token');
 const startValues = await page.locator('.reel__value').allTextContents();
 check('reels start empty', startValues.every((v) => v.trim() === '—'), startValues.join('|'));
@@ -324,40 +324,42 @@ check(
 const values = await page.locator('.reel__value').allTextContents();
 check('all reels filled', values.every((v) => v.trim() && v.trim() !== '—'), values.join(' | '));
 check('map respects difficulty', MAPS_BY_MODE[mode].includes(values[0].trim()), `${mode} -> ${values[0].trim()}`);
-check('token consumed', !(await paid()));
-check('lever re-locked', await page.locator('.lever').isDisabled());
+// The token UNLOCKS the machine rather than buying one go: it stays in, and
+// the lever and every column's Spin button stay live for as long as it is
+// there. Charging per pull sent you back to the wheel for a coin after every
+// re-roll, and greyed out the column buttons the moment you used one.
+check('token stays in the machine after a pull', await paid());
+check('lever stays live after a pull', !(await page.locator('.lever').isDisabled()));
 check('indicator keeps the difficulty in play', (await modeIndicator()) === mode);
 
 /* ------------------------------------------------------- hold + a click */
 
-check('controls stay usable with no token', await page.locator('.reel').nth(2).locator('.btn--hold').isEnabled());
-
-// A column spin needs a token, and spends it.
+check('hold is free', await page.locator('.reel').nth(2).locator('.btn--hold').isEnabled());
 check(
-  'column spin stays locked with no token',
-  await page.locator('.reel').nth(2).locator('.reel__respin').isDisabled(),
-);
-await page.locator('.legend__item--black').click();
-await page.waitForSelector('.coin', { timeout: 5000 });
-await page.locator('.coin').click();
-await page.waitForFunction(
-  () => document.querySelector('.coinslot__text')?.textContent?.trim() === 'Inserted',
-  { timeout: 5000 },
-);
-check(
-  'column spin unlocks once a token is in',
+  'column spin is live with a token in',
   await page.locator('.reel').nth(2).locator('.reel__respin').isEnabled(),
 );
-await page.locator('.reel').nth(2).locator('.reel__respin').click();
-await page.waitForFunction(
-  () => document.querySelectorAll('.reel.is-spinning').length === 0,
-  { timeout: 20000 },
-);
-check('spinning one column spends the token', !(await paid()));
+
+// Two column spins back to back, on the one token.
+const spinCol = async (n) => {
+  const before = (await page.locator('.reel').nth(n).locator('.reel__value').textContent()).trim();
+  await page.locator('.reel').nth(n).locator('.reel__respin').click();
+  await page.waitForFunction(
+    () => document.querySelectorAll('.reel.is-spinning').length === 0,
+    { timeout: 20000 },
+  );
+  await page.waitForTimeout(150);
+  return before;
+};
+await spinCol(2);
+check('column spin does not eat the token', await paid());
 check(
-  'column spin re-locks after spending',
-  await page.locator('.reel').nth(2).locator('.reel__respin').isDisabled(),
+  'the same column can be spun again',
+  await page.locator('.reel').nth(2).locator('.reel__respin').isEnabled(),
 );
+await spinCol(4);
+check('a second column spins on the same token', await paid());
+check('the lever is still live too', !(await page.locator('.lever').isDisabled()));
 const heldReel = page.locator('.reel').nth(2);
 await heldReel.locator('.btn--hold').click();
 const heldName = (await heldReel.locator('.reel__value').textContent())?.trim();
@@ -553,6 +555,25 @@ check(
 
   await p.mouse.up();
   await p.close();
+}
+
+/* ------------------------------------------------- cabinet padding */
+
+// Seven fixed-width columns rarely fill the cabinet exactly, and packed to the
+// start all the slack piled up on the right.
+{
+  const g = await page.evaluate(() => {
+    const cab = document.querySelector('.cabinet');
+    const reels = [...document.querySelectorAll('.reel')];
+    const c = cab.getBoundingClientRect();
+    return {
+      left: Math.round(reels[0].getBoundingClientRect().left - c.left),
+      right: Math.round(c.right - reels[reels.length - 1].getBoundingClientRect().right),
+    };
+  });
+  check('the columns sit evenly inside the cabinet', Math.abs(g.left - g.right) <= 1,
+    `left ${g.left} / right ${g.right}`);
+  check('and are not flush against the edge', g.left >= 8, `left ${g.left}`);
 }
 
 /* --------------------------------------------- payline on a phone */
