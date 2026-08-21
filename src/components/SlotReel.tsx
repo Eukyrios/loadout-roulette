@@ -6,6 +6,8 @@ export const CELL = 76;
 
 /** How many filler cells whip past before the winner shows up. */
 const FILLERS = 22;
+/** How long a single-step nudge takes to slide one cell. */
+const NUDGE_MS = 190;
 
 interface Props {
   slot: SlotSpec;
@@ -27,6 +29,34 @@ interface Props {
 
 const rand = <T,>(list: T[]): T | undefined => list[Math.floor(Math.random() * list.length)];
 
+/** Checked per nudge rather than cached, so toggling the OS setting takes
+ *  effect without a reload. */
+const reducedMotion = () =>
+  typeof window !== 'undefined' &&
+  window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/**
+ * The two cells either side of the payline, at rest.
+ *
+ * These are the pool entries ADJACENT to the current one, not random picks.
+ * Two reasons, and the first is a bug the second would have hidden:
+ *
+ *  1. A random neighbour can land on the item already on the payline, so the
+ *     same name shows up twice in the window.
+ *  2. The nudge arrows step through the pool in order, so the cell below the
+ *     payline must be the one that arrives when you press it. Random
+ *     neighbours make the reel lie about what is coming next.
+ */
+function neighbours(pool: Entry[], entry: Entry | null): [Entry | null, Entry | null] {
+  const n = pool.length;
+  // Nothing to show either side of a pool that is only the current item.
+  if (n < 2) return [null, null];
+  const i = entry ? pool.findIndex((e) => e.id === entry.id) : -1;
+  // Current entry isn't in the pool (a stale roll): wrap the ends instead.
+  if (i < 0) return [pool[n - 1] ?? null, pool[0] ?? null];
+  return [pool[(i - 1 + n) % n], pool[(i + 1) % n]];
+}
+
 export function SlotReel({
   slot,
   entry,
@@ -46,29 +76,117 @@ export function SlotReel({
   const [strip, setStrip] = useState<(Entry | null)[]>([null, entry, null]);
   const [offset, setOffset] = useState(0);
   const [moving, setMoving] = useState(false);
+  const [moveMs, setMoveMs] = useState(0);
   const [blur, setBlur] = useState(false);
   const [flash, setFlash] = useState(false);
 
   const cb = useRef({ onSpinEnd, onTick });
   cb.current = { onSpinEnd, onTick };
   const timers = useRef<number[]>([]);
+  // Kept apart from the timeouts: these need cancelAnimationFrame, and the two
+  // id spaces are unrelated.
+  const rafs = useRef<number[]>([]);
   const clearTimers = () => {
     timers.current.forEach(clearTimeout);
     timers.current = [];
+    rafs.current.forEach(cancelAnimationFrame);
+    rafs.current = [];
+  };
+
+  /**
+   * Paint the start position, THEN transition from it. Without waiting two
+   * frames the browser coalesces both into one style change and the strip
+   * jumps straight to the end instead of sliding.
+   */
+  const afterPaint = (fn: () => void) => {
+    const r1 = requestAnimationFrame(() => {
+      const r2 = requestAnimationFrame(fn);
+      rafs.current.push(r2);
+    });
+    rafs.current.push(r1);
   };
 
   const empty = pool.length === 0;
   const entryId = entry?.id ?? null;
 
   /* -- static rest state ------------------------------------------------- */
+  const [above, below] = neighbours(pool, entry);
+  // Keyed on the neighbours themselves, not just the entry: changing a filter
+  // can reshape the pool around an unchanged payline item, and the cells either
+  // side have to follow it.
+  const restKey = `${above?.id ?? ''}|${entryId ?? ''}|${below?.id ?? ''}`;
+
+  /**
+   * Tracks what was on the payline last, so a change of one step through the
+   * pool can be told apart from a jump. The nudge direction is derived here
+   * rather than passed in as a prop: any single-step change should slide,
+   * whoever caused it.
+   */
+  const prevId = useRef<string | null>(entryId);
+
   useEffect(() => {
-    if (spinning) return;
-    setStrip([rand(pool) ?? null, entry, rand(pool) ?? null]);
-    setOffset(0);
-    setMoving(false);
+    // Keep the tracker current during a spin, so the landing isn't mistaken
+    // for a nudge when the reel happens to stop on an adjacent item.
+    if (spinning) {
+      prevId.current = entryId;
+      return;
+    }
+
+    const fromId = prevId.current;
+    prevId.current = entryId;
     setBlur(false);
+
+    const n = pool.length;
+    const from = fromId ? pool.findIndex((e) => e.id === fromId) : -1;
+    const to = entry ? pool.findIndex((e) => e.id === entry.id) : -1;
+
+    // Did we move exactly one place through the pool?
+    let dir = 0;
+    if (n > 2 && from >= 0 && to >= 0 && from !== to && !reducedMotion()) {
+      if ((from + 1) % n === to) dir = 1;
+      else if ((from - 1 + n) % n === to) dir = -1;
+    }
+
+    if (dir === 0) {
+      setStrip([above, entry, below]);
+      setOffset(0);
+      setMoving(false);
+      return;
+    }
+
+    // Slide one cell. The strip is built with FOUR cells spanning both the old
+    // and new positions, started on the old one, then transitioned — so the
+    // column visibly travels instead of the middle cell swapping its contents.
+    clearTimers();
+    const fromEntry = pool[from];
+    if (dir === 1) {
+      setStrip([pool[(from - 1 + n) % n], fromEntry, entry, below]);
+      setOffset(0); // payline = index 1 = where we were
+    } else {
+      setStrip([above, entry, fromEntry, pool[(from + 1) % n]]);
+      setOffset(-CELL); // payline = index 2 = where we were
+    }
+    setMoving(false);
+    setMoveMs(NUDGE_MS);
+
+    afterPaint(() => {
+      setMoving(true);
+      setOffset(dir === 1 ? -CELL : 0);
+    });
+    // Once it has landed, collapse back to the canonical [above, entry, below]
+    // at offset 0. Visually identical — the payline holds the same item — but
+    // it leaves every reel in one predictable resting shape instead of a
+    // four-cell strip parked at an offset, which the next slide would have to
+    // reason about.
+    timers.current.push(
+      window.setTimeout(() => {
+        setMoving(false);
+        setStrip([above, entry, below]);
+        setOffset(0);
+      }, NUDGE_MS + 30),
+    );
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [entryId, spinning]);
+  }, [restKey, spinning]);
 
   /* -- the spin ---------------------------------------------------------- */
   useEffect(() => {
@@ -89,19 +207,13 @@ export function SlotReel({
     setStrip(next);
     setOffset(0);
     setMoving(false);
+    setMoveMs(duration);
     setBlur(true);
 
-    // Two frames: one to paint the reset strip, one to start the transition
-    // from it. Without the double rAF the browser coalesces both and the reel
-    // jumps straight to the answer.
-    const r1 = requestAnimationFrame(() => {
-      const r2 = requestAnimationFrame(() => {
-        setMoving(true);
-        setOffset(-(targetIndex - 1) * CELL);
-      });
-      timers.current.push(r2 as unknown as number);
+    afterPaint(() => {
+      setMoving(true);
+      setOffset(-(targetIndex - 1) * CELL);
     });
-    timers.current.push(r1 as unknown as number);
 
     // Ratchet clicks, one per cell boundary. The strip decelerates, so the
     // clicks have to as well: invert the easing to find when each cell passes.
@@ -132,9 +244,9 @@ export function SlotReel({
   const stripStyle = useMemo(
     () => ({
       transform: `translate3d(0, ${offset}px, 0)`,
-      transition: moving ? `transform ${duration}ms cubic-bezier(.16,.62,.16,1)` : 'none',
+      transition: moving ? `transform ${moveMs}ms cubic-bezier(.16,.62,.16,1)` : 'none',
     }),
-    [offset, moving, duration],
+    [offset, moving, moveMs],
   );
 
   return (

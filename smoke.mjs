@@ -230,6 +230,70 @@ await page.waitForFunction(() => document.querySelectorAll('.reel.is-spinning').
 check('click-to-pull still works', (await page.locator('.reel__value').allTextContents()).every((v) => v.trim() !== '—'));
 check('hold survives a pull', (await heldReel.locator('.reel__value').textContent())?.trim() === heldName, heldName);
 
+/* ------------------------------------------------- nudging is coherent */
+
+// Regression: the cells either side of the payline used to be picked at
+// random, so a neighbour could be the payline item itself and the same name
+// appeared twice in the window. Nudging re-rolled those picks, so scrolling
+// hit it within a few presses.
+const opReel = page.locator('.reel').nth(1); // operator — a 16-deep pool
+const cellNames = async () =>
+  (await opReel.locator('.cell__name').allTextContents()).map((t) => t.trim());
+
+let dupSeen = null;
+let mismatch = null;
+for (let i = 0; i < 12; i++) {
+  const before = await cellNames();
+  if (before.length === 3 && new Set(before).size !== 3) dupSeen ??= before.join(' | ');
+
+  // The cell below the payline must be the one that arrives when you press ▼.
+  const expected = before[2];
+  await opReel.getByRole('button', { name: /^Next / }).click();
+  await page.waitForTimeout(260); // let the 190ms slide settle
+  const after = await cellNames();
+  if (expected && after[1] && after[1] !== expected) {
+    mismatch ??= `expected ${expected}, got ${after[1]}`;
+  }
+  if (after.length === 3 && new Set(after).size !== 3) dupSeen ??= after.join(' | ');
+}
+check('no duplicate item in the reel window while nudging', dupSeen === null, dupSeen ?? '');
+check('nudging down promotes the cell below the payline', mismatch === null, mismatch ?? '');
+
+// And the same going the other way.
+let upMismatch = null;
+for (let i = 0; i < 6; i++) {
+  const before = await cellNames();
+  const expected = before[0];
+  await opReel.getByRole('button', { name: /^Previous / }).click();
+  await page.waitForTimeout(260);
+  const after = await cellNames();
+  if (expected && after[1] && after[1] !== expected) {
+    upMismatch ??= `expected ${expected}, got ${after[1]}`;
+  }
+}
+check('nudging up promotes the cell above the payline', upMismatch === null, upMismatch ?? '');
+
+await page.evaluate(() => {
+  const el = document.querySelectorAll('.reel')[1].querySelector('.reel__strip');
+  window.__slide = [];
+  el.addEventListener('transitionend', (e) => window.__slide.push(e.propertyName));
+});
+await opReel.getByRole('button', { name: /^Next / }).click();
+await page.waitForTimeout(600);
+const slid = await page.evaluate(() => window.__slide);
+check('nudging slides the strip rather than snapping', slid.includes('transform'), JSON.stringify(slid));
+
+// And it comes to rest in one predictable shape.
+const restShape = await page.evaluate(() => {
+  const el = document.querySelectorAll('.reel')[1].querySelector('.reel__strip');
+  return { cells: el.children.length, transform: getComputedStyle(el).transform };
+});
+check(
+  'reel settles back to three cells at offset zero',
+  restShape.cells === 3 && /matrix\(1, 0, 0, 1, 0, 0\)/.test(restShape.transform),
+  JSON.stringify(restShape),
+);
+
 /* ------------------------------------------------------------ drag coin */
 
 await page.locator('.legend__item--black').click();
