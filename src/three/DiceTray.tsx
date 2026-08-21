@@ -11,6 +11,7 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
 import * as THREE from 'three';
 import { frameCamera } from './frame';
+import { renderLoop } from './renderLoop';
 
 export interface DiceHandle {
   /** Tumble to `a` on the white die and `b` on the red. Resolves when settled. */
@@ -389,9 +390,10 @@ export const DiceTray = forwardRef<DiceHandle, Props>(function DiceTray(
         }),
     };
 
-    let raf = 0;
+    // Nothing on this table moves unless the dice are in the air, so it only
+    // draws when they are — or once more after a resize.
+    let dirty = true;
     const frame = (now: number) => {
-      raf = requestAnimationFrame(frame);
 
       if (rolling) {
         const base = clamp01((now - rollStart) / duration);
@@ -446,9 +448,14 @@ export const DiceTray = forwardRef<DiceHandle, Props>(function DiceTray(
         }
       }
 
-      renderer.render(scene, camera);
+      if (rolling || dirty) {
+        dirty = false;
+        renderer.render(scene, camera);
+      }
     };
-    raf = requestAnimationFrame(frame);
+    const loop = renderLoop(mount, frame, () => rolling, () => {
+      dirty = true;
+    });
 
     const resize = () => {
       const w = mount.clientWidth || 1;
@@ -456,6 +463,8 @@ export const DiceTray = forwardRef<DiceHandle, Props>(function DiceTray(
       renderer.setSize(w, h, false);
       camera.aspect = w / h;
       camera.updateProjectionMatrix();
+      dirty = true;
+      loop.wake();
 
       frameCamera(
         camera,
@@ -471,7 +480,7 @@ export const DiceTray = forwardRef<DiceHandle, Props>(function DiceTray(
     ro.observe(mount);
 
     return () => {
-      cancelAnimationFrame(raf);
+      loop.stop();
       ro.disconnect();
       white.dispose();
       red.dispose();

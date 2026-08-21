@@ -21,6 +21,7 @@ import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
 import * as THREE from 'three';
 import { POCKET_COLORS, WHEEL_POCKETS } from '../data/deltaforce';
 import { frameCamera } from './frame';
+import { renderLoop } from './renderLoop';
 
 export interface RouletteHandle {
   /** Animate the ball into `pocket`. Resolves when it settles. */
@@ -533,13 +534,10 @@ export const RouletteWheel = forwardRef<RouletteHandle, Props>(function Roulette
     };
 
     /* ---- loop ------------------------------------------------------- */
-    let raf = 0;
-    let last = performance.now();
-
-    const frame = (now: number) => {
-      raf = requestAnimationFrame(frame);
-      const dt = Math.min((now - last) / 1000, 0.05);
-      last = now;
+    // Unlike the other three this one is never still — the wheel drifts even
+    // at rest — so it draws on every frame it is given. The loop simply stops
+    // giving it frames while it is off screen.
+    const frame = (now: number, dt: number) => {
 
       if (spinning) {
         const u = clamp01((now - spinStart) / duration);
@@ -653,7 +651,7 @@ export const RouletteWheel = forwardRef<RouletteHandle, Props>(function Roulette
 
       renderer.render(scene, camera);
     };
-    raf = requestAnimationFrame(frame);
+    const loop = renderLoop(mount, frame, () => spinning || queued >= 0);
 
     /* ---- sizing ------------------------------------------------------ */
     const resize = () => {
@@ -667,6 +665,7 @@ export const RouletteWheel = forwardRef<RouletteHandle, Props>(function Roulette
       viewW = w;
       viewH = h;
       camDirty = true;
+      loop.wake();
     };
     resize();
     const ro = new ResizeObserver(resize);
@@ -674,7 +673,7 @@ export const RouletteWheel = forwardRef<RouletteHandle, Props>(function Roulette
 
     /* ---- teardown ---------------------------------------------------- */
     return () => {
-      cancelAnimationFrame(raf);
+      loop.stop();
       ro.disconnect();
       wheel.dispose();
       bowl.dispose();

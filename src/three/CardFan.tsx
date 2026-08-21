@@ -19,6 +19,7 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
 import * as THREE from 'three';
 import { frameCamera } from './frame';
+import { renderLoop } from './renderLoop';
 
 export interface CardFanHandle {
   /** Pull a card out of the fan into hand `slot`, revealing `label`. */
@@ -442,12 +443,11 @@ export const CardFan = forwardRef<CardFanHandle, Props>(function CardFan(
       );
     };
 
-    let raf = 0;
-    let last = performance.now();
-    const frame = (now: number) => {
-      raf = requestAnimationFrame(frame);
-      const dt = Math.min(0.05, Math.max(0, (now - last) / 1000));
-      last = now;
+    // Still between draws, so it only draws while a card is moving or the
+    // framing is still opening out — plus once more after a resize.
+    let dirty = true;
+    const settled = () => movers.length === 0 && shownCount === targetCount;
+    const frame = (now: number, dt: number) => {
 
       if (movers.length) {
         const u = clamp01((now - startedAt) / duration);
@@ -490,9 +490,14 @@ export const CardFan = forwardRef<CardFanHandle, Props>(function CardFan(
         reframe();
       }
 
-      renderer.render(scene, camera);
+      if (!settled() || dirty) {
+        dirty = false;
+        renderer.render(scene, camera);
+      }
     };
-    raf = requestAnimationFrame(frame);
+    const loop = renderLoop(mount, frame, () => !settled(), () => {
+      dirty = true;
+    });
 
     /* ------------------------------------------------------------ sizing */
     const resize = () => {
@@ -503,6 +508,8 @@ export const CardFan = forwardRef<CardFanHandle, Props>(function CardFan(
       camera.updateProjectionMatrix();
       viewW = w;
       viewH = h;
+      dirty = true;
+      loop.wake();
       reframe();
     };
     resize();
@@ -510,7 +517,7 @@ export const CardFan = forwardRef<CardFanHandle, Props>(function CardFan(
     ro.observe(mount);
 
     return () => {
-      cancelAnimationFrame(raf);
+      loop.stop();
       ro.disconnect();
       cards.forEach((c) => c.face?.dispose());
       trash.forEach((t) => t.dispose());

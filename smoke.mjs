@@ -557,6 +557,76 @@ check(
   await p.close();
 }
 
+/* --------------------------------------------------------- render cost */
+
+/**
+ * Four WebGL scenes left to their own devices each draw sixty times a second
+ * forever, including the three you cannot see. That is what made the page lag
+ * and cook a phone; the loop now runs only for the stage on screen, and the
+ * three static scenes only when something in them moves.
+ */
+{
+  const p = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  await p.addInitScript(() => {
+    window.__draws = new Map();
+    for (const proto of [WebGLRenderingContext, WebGL2RenderingContext]) {
+      for (const m of ['drawElements', 'drawArrays', 'drawElementsInstanced']) {
+        const orig = proto.prototype[m];
+        if (!orig) continue;
+        proto.prototype[m] = function (...a) {
+          const id = this.canvas.__id ?? (this.canvas.__id = window.__draws.size);
+          window.__draws.set(id, (window.__draws.get(id) || 0) + 1);
+          return orig.apply(this, a);
+        };
+      }
+    }
+  });
+  await p.goto('http://localhost:4321/', { waitUntil: 'networkidle' });
+  await p.waitForTimeout(1500);
+  check('four scenes on the page', (await p.locator('canvas').count()) === 4);
+
+  const sample = async (ms) => {
+    await p.evaluate(() => window.__draws.clear());
+    await p.waitForTimeout(ms);
+    return p.evaluate(() => [...window.__draws.values()]);
+  };
+
+  const top = await sample(2500);
+  check('only the stage on screen draws', top.length <= 1, `${top.length} canvases drew`);
+  check('the wheel does keep drawing', (top[0] ?? 0) > 0, JSON.stringify(top));
+
+  // The stick cup is static, so parked on it nothing should be drawing at all.
+  await p.evaluate(() => document.querySelector('.stage--sticks').scrollIntoView());
+  await p.waitForTimeout(1200);
+  const idle = await sample(2500);
+  check('a settled scene stops drawing entirely',
+    idle.reduce((a, b) => a + b, 0) === 0, JSON.stringify(idle));
+
+  // ...but it must not be left blank when you come back to it.
+  await p.evaluate(() => window.scrollTo(0, 0));
+  await p.waitForTimeout(600);
+  await p.evaluate(() => document.querySelector('.stage--sticks').scrollIntoView());
+  await p.waitForTimeout(900);
+  const shot = (await p.locator('.stage--sticks canvas').screenshot()).toString('base64');
+  const lit = await p.evaluate(async (b64) => {
+    const img = new Image();
+    await new Promise((r) => { img.onload = r; img.src = 'data:image/png;base64,' + b64; });
+    const g = document.createElement('canvas');
+    g.width = 80; g.height = 80;
+    const x = g.getContext('2d');
+    x.drawImage(img, 0, 0, 80, 80);
+    const d = x.getImageData(0, 0, 80, 80).data;
+    const base = [d[0], d[1], d[2]];
+    let n = 0;
+    for (let i = 0; i < d.length; i += 4) {
+      if (Math.abs(d[i]-base[0]) + Math.abs(d[i+1]-base[1]) + Math.abs(d[i+2]-base[2]) > 24) n++;
+    }
+    return n;
+  }, shot);
+  check('and repaints when you scroll back to it', lit > 200, `${lit} lit px`);
+  await p.close();
+}
+
 /* ------------------------------------------------- cabinet padding */
 
 // Seven fixed-width columns rarely fill the cabinet exactly, and packed to the

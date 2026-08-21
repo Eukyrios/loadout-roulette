@@ -20,6 +20,7 @@ import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
 import * as THREE from 'three';
 import { SQUAD_BY_ID, STICK_BUNDLE } from '../data/deltaforce';
 import { frameCamera } from './frame';
+import { renderLoop } from './renderLoop';
 
 export interface StickHandle {
   /** Shake, then draw the stick at `index` in STICK_BUNDLE. */
@@ -304,9 +305,10 @@ export const StickCup = forwardRef<StickHandle, Props>(function StickCup(
         }),
     };
 
-    let raf = 0;
+    // Static between draws, so it only draws while the cup is being worked —
+    // or once more after a resize.
+    let dirty = true;
     const frame = (now: number) => {
-      raf = requestAnimationFrame(frame);
 
       if (drawing) {
         const u = clamp01((now - startedAt) / duration);
@@ -387,9 +389,14 @@ export const StickCup = forwardRef<StickHandle, Props>(function StickCup(
         }
       }
 
-      renderer.render(scene, camera);
+      if (drawing || dirty) {
+        dirty = false;
+        renderer.render(scene, camera);
+      }
     };
-    raf = requestAnimationFrame(frame);
+    const loop = renderLoop(mount, frame, () => drawing, () => {
+      dirty = true;
+    });
 
     /* -------------------------------------------------------------- sizing */
     const resize = () => {
@@ -398,6 +405,8 @@ export const StickCup = forwardRef<StickHandle, Props>(function StickCup(
       renderer.setSize(w, h, false);
       camera.aspect = w / h;
       camera.updateProjectionMatrix();
+      dirty = true;
+      loop.wake();
       frameCamera(
         camera,
         {
@@ -412,7 +421,7 @@ export const StickCup = forwardRef<StickHandle, Props>(function StickCup(
     ro.observe(mount);
 
     return () => {
-      cancelAnimationFrame(raf);
+      loop.stop();
       ro.disconnect();
       trash.forEach((t) => t.dispose());
       renderer.dispose();
