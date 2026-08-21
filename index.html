@@ -5,14 +5,114 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="color-scheme" content="dark light" />
-    <title>Loadout Roulette — Delta Force randomizer</title>
+    <meta name="theme-color" content="#060e13" />
+
+    <title>Loadout Roulette — Delta Force random loadout generator</title>
     <meta
       name="description"
-      content="Randomize your Delta Force Operations loadout: operator, map, weapon, and armor, with tier bounds and filters you control."
+      content="Randomise your Delta Force: Operations run. Spin for difficulty, pull the reels for map, operator, weapon and armour, roll spending caps, draw keycards, and see if you go solo, duo or trio."
     />
+
+    <!-- Absolute, because a canonical URL and a share preview cannot be
+         relative. Both point at the GitHub Pages address; change these two
+         lines (and sitemap.xml) if the site ever moves to its own domain. -->
+    <link rel="canonical" href="https://eukyrios.github.io/loadout-roulette/" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Loadout Roulette" />
+    <meta property="og:title" content="Loadout Roulette — Delta Force random loadout generator" />
+    <meta
+      property="og:description"
+      content="Spin the wheel for difficulty, pull the reels for your kit, roll your spending caps, draw your keycards, and see if you run it solo."
+    />
+    <meta property="og:url" content="https://eukyrios.github.io/loadout-roulette/" />
+    <meta property="og:image" content="https://eukyrios.github.io/loadout-roulette/og.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Loadout Roulette — Delta Force Operations randomiser" />
+
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Loadout Roulette — Delta Force random loadout generator" />
+    <meta
+      name="twitter:description"
+      content="Spin the wheel for difficulty, pull the reels for your kit, roll your spending caps, draw your keycards, and see if you run it solo."
+    />
+    <meta name="twitter:image" content="https://eukyrios.github.io/loadout-roulette/og.png" />
+
+    <!-- Tells search engines what KIND of thing this is, not just what words
+         are on it. `WebApplication` with a free price is what earns an app the
+         richer treatment in results. -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "WebApplication",
+        "name": "Loadout Roulette",
+        "url": "https://eukyrios.github.io/loadout-roulette/",
+        "applicationCategory": "GameApplication",
+        "operatingSystem": "Any modern web browser",
+        "browserRequirements": "Requires JavaScript and WebGL",
+        "description": "A random loadout generator for Delta Force: Operations. Spin for difficulty, roll a map, operator, weapon and armour, roll spending caps, draw keycards, and draw for squad size.",
+        "inLanguage": "en",
+        "isAccessibleForFree": true,
+        "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+        "image": "https://eukyrios.github.io/loadout-roulette/og.png"
+      }
+    </script>
+
+    <!-- Enough of the page to survive with the stylesheet not yet applied:
+         this is what a crawler that does not run scripts, and a reader whose
+         bundle has not arrived, actually see. -->
+    <style>
+      .boot {
+        max-width: 42rem;
+        margin: 0 auto;
+        padding: 3rem 1.25rem;
+        color: #95a8b4;
+        background: #060e13;
+        font-family: "Inter", "Segoe UI", system-ui, sans-serif;
+        line-height: 1.55;
+      }
+      .boot h1 {
+        color: #fafafa;
+        font-size: 1.7rem;
+        margin: 0 0 0.6rem;
+      }
+      .boot h1 span {
+        color: #0ff796;
+      }
+      .boot ol {
+        padding-left: 1.1rem;
+      }
+      .boot li {
+        margin: 0.3rem 0;
+      }
+    </style>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <!-- Replaced by the app the moment it mounts. Here so that the page is
+           never a blank div: the whole description of what this thing does
+           used to exist only inside the JavaScript bundle. -->
+      <div class="boot">
+        <h1>Loadout <span>Roulette</span></h1>
+        <p>
+          A random loadout generator for <strong>Delta Force: Operations</strong>. Five stages, in
+          order:
+        </p>
+        <ol>
+          <li>Spin the roulette wheel for a difficulty — Easy, Normal or Hard — and take the token.</li>
+          <li>
+            Feed the token into the slot machine and pull for your kit: map, operator, primary
+            weapon, helmet, vest, chest rig and backpack, filtered to what that difficulty actually
+            allows.
+          </li>
+          <li>Throw the dice for your loadout and attachment spending caps.</li>
+          <li>Draw up to five keycards, face down, from the locked rooms on the map you rolled.</li>
+          <li>Draw a stick for squad size: solo, duo or trio.</li>
+        </ol>
+        <p>Loading the interactive version…</p>
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

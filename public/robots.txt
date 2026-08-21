@@ -1,0 +1,10 @@
+# NOTE: crawlers only read robots.txt at the DOMAIN root. On a GitHub Pages
+# PROJECT site this file ships to
+#   eukyrios.github.io/loadout-roulette/robots.txt
+# which nothing reads — the live one is eukyrios.github.io/robots.txt, and that
+# comes from the eukyrios/eukyrios.github.io repo. It is here so it is already
+# correct the day this moves to its own domain, and so the sitemap has a home.
+User-agent: *
+Allow: /
+
+Sitemap: https://eukyrios.github.io/loadout-roulette/sitemap.xml

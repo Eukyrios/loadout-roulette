@@ -127,12 +127,12 @@ check('legend rows are buttons', (await page.locator('.legend__item').evaluateAl
 )));
 
 await page.locator('.legend__item--green').click(); // Hard
-await page.waitForSelector('.coin', { timeout: 5000 });
-check('legend click mints a token', await page.locator('.coin').isVisible());
+await page.waitForSelector('.coin:not(.coin--spent)', { timeout: 5000 });
+check('legend click mints a token', await page.locator('.coin:not(.coin--spent)').isVisible());
 check('legend marks the pick', (await wonMode())?.trim() === 'Hard');
 check(
   'legend token is the right metal',
-  (await page.locator('.coin').getAttribute('class')).includes('coin--green'),
+  (await page.locator('.coin:not(.coin--spent)').getAttribute('class')).includes('coin--green'),
 );
 
 /* ------------------------------------- difficulty actually gates the gear */
@@ -170,8 +170,8 @@ await page.waitForFunction(
 const mode = (await wonMode())?.trim();
 check('wheel produced a difficulty', ['Easy', 'Normal', 'Hard'].includes(mode), mode);
 
-await page.waitForSelector('.coin', { timeout: 5000 });
-const coinClass = await page.locator('.coin').getAttribute('class');
+await page.waitForSelector('.coin:not(.coin--spent)', { timeout: 5000 });
+const coinClass = await page.locator('.coin:not(.coin--spent)').getAttribute('class');
 check('coin matches difficulty', coinClass.includes(TONE[mode]), `${mode} -> ${coinClass}`);
 check(
   'coin stamped with difficulty',
@@ -191,7 +191,7 @@ check('lever explains why it is inert', (await page.locator('.lever__text').text
 /* -------------------------------------------------------- insert + pull */
 
 await page.waitForTimeout(700); // let the drop animation settle
-await page.locator('.coin').click();
+await page.locator('.coin:not(.coin--spent)').click();
 await page.waitForFunction(
   () => document.querySelector('.coinslot__text')?.textContent?.trim() === 'Inserted',
   { timeout: 5000 },
@@ -365,9 +365,9 @@ await heldReel.locator('.btn--hold').click();
 const heldName = (await heldReel.locator('.reel__value').textContent())?.trim();
 
 await page.locator('.legend__item--red').click(); // Easy, straight from the legend
-await page.waitForSelector('.coin', { timeout: 8000 });
+await page.waitForSelector('.coin:not(.coin--spent)', { timeout: 8000 });
 await page.waitForTimeout(700);
-await page.locator('.coin').click();
+await page.locator('.coin:not(.coin--spent)').click();
 await page.waitForFunction(
   () => document.querySelector('.coinslot__text')?.textContent?.trim() === 'Inserted',
   { timeout: 5000 },
@@ -487,10 +487,14 @@ check(
     window.__bursts = [];
     new MutationObserver((recs) => {
       for (const r of recs) for (const n of r.addedNodes) {
-        if (n.nodeType !== 1 || !n.classList?.contains('sparks')) continue;
-        const first = n.querySelector('.spark');
+        if (n.nodeType !== 1) continue;
+        // A second burst within the 560ms spark lifetime is appended to the
+        // container already on the page, so watching only for new .sparks
+        // containers silently drops it.
+        const spans = n.classList?.contains('spark') ? [n] : [...(n.querySelectorAll?.('.spark') ?? [])];
+        if (!spans.length) continue;
         window.__bursts.push({
-          y: first ? Math.round(parseFloat(first.style.top)) : -1,
+          y: Math.round(parseFloat(spans[0].style.top)),
           scrollY: Math.round(window.scrollY),
           maxScroll: Math.round(document.documentElement.scrollHeight - window.innerHeight),
         });
@@ -505,7 +509,7 @@ check(
   check('page overflows a short viewport', end > 300, `max=${end}`);
 
   await p.locator('.legend__item--black').click();
-  await p.waitForSelector('.coin', { timeout: 8000 });
+  await p.waitForSelector('.coin:not(.coin--spent)', { timeout: 8000 });
   await p.waitForTimeout(600);
 
   // Park with room in both directions and the coin still on screen: scrolling
@@ -518,7 +522,7 @@ check(
   const parked = await top();
   check('parked with room above and below', parked > 100 && parked < end - 100, `${parked} of ${end}`);
 
-  const cb = await p.locator('.coin').boundingBox();
+  const cb = await p.locator('.coin:not(.coin--spent)').boundingBox();
   const cx = cb.x + cb.width / 2;
   await p.mouse.move(cx, cb.y + 4);
   await p.mouse.down();
@@ -533,7 +537,7 @@ check(
   await p.waitForFunction(() => window.__bursts.length > 0, null, { timeout: 8000 }).catch(() => {});
   const up = await bursts();
   check('token strikes the top only once the page runs out',
-    up.length === 1 && up[0].scrollY === 0 && up[0].y < 120, JSON.stringify(up));
+    up.length > 0 && up.every((b) => b.scrollY === 0 && b.y < 120), JSON.stringify(up));
 
   await p.mouse.move(cx, 690, { steps: 16 });
   await p.waitForFunction((m) => window.scrollY >= m - 2, end, { timeout: 30000 }).catch(() => {});
@@ -555,6 +559,55 @@ check(
 
   await p.mouse.up();
   await p.close();
+}
+
+/* ---------------------------------------------------------------- SEO */
+
+/**
+ * What a crawler sees. The page is a client-side app, so without this the
+ * entire description of what it does lives inside the JS bundle and anything
+ * that does not run scripts gets an empty div.
+ */
+{
+  const noJs = await browser.newContext({ javaScriptEnabled: false });
+  const np = await noJs.newPage();
+  await np.goto('http://localhost:4321/', { waitUntil: 'domcontentloaded' });
+  const copy = (await np.locator('body').innerText()).replace(/\s+/g, ' ').trim();
+  check('script-less crawlers get real copy', copy.length > 300, `${copy.length} chars`);
+  check('copy names the game and the stages',
+    /Delta Force/i.test(copy) && /keycards/i.test(copy) && /squad size/i.test(copy));
+  await noJs.close();
+
+  const meta = await page.evaluate(() => {
+    const g = (sel, attr = 'content') => document.querySelector(sel)?.getAttribute(attr) ?? null;
+    let ld = null;
+    try { ld = JSON.parse(document.querySelector('script[type="application/ld+json"]').textContent); } catch {}
+    return {
+      title: document.title,
+      desc: g('meta[name="description"]'),
+      canonical: g('link[rel=canonical]', 'href'),
+      og: ['og:title', 'og:description', 'og:url', 'og:image']
+        .every((p) => !!g(`meta[property="${p}"]`)),
+      card: g('meta[name="twitter:card"]'),
+      lang: document.documentElement.lang,
+      type: ld?.['@type'],
+    };
+  });
+  check('title fits a result snippet', /Loadout Roulette/.test(meta.title) && meta.title.length <= 65,
+    `${meta.title.length} chars`);
+  check('description fits a result snippet', meta.desc?.length >= 110 && meta.desc?.length <= 320,
+    `${meta.desc?.length} chars`);
+  check('canonical URL is absolute', !!meta.canonical?.startsWith('https://'), meta.canonical);
+  check('open graph is complete', meta.og);
+  check('twitter card is a large image', meta.card === 'summary_large_image');
+  check('document language is declared', meta.lang === 'en');
+  check('structured data describes a WebApplication', meta.type === 'WebApplication', String(meta.type));
+
+  for (const f of ['og.png', 'sitemap.xml', 'robots.txt']) {
+    const r = await page.request.get(`http://localhost:4321/${f}`);
+    check(`${f} is served`, r.status() === 200, String(r.status()));
+  }
+  check('the app replaces the crawler fallback', (await page.locator('.boot').count()) === 0);
 }
 
 /* --------------------------------------------------------- render cost */
@@ -688,9 +741,9 @@ check(
 /* ------------------------------------------------------------ drag coin */
 
 await page.locator('.legend__item--black').click();
-await page.waitForSelector('.coin', { timeout: 8000 });
+await page.waitForSelector('.coin:not(.coin--spent)', { timeout: 8000 });
 await page.waitForTimeout(700);
-const coinBox = await page.locator('.coin').boundingBox();
+const coinBox = await page.locator('.coin:not(.coin--spent)').boundingBox();
 const slotBox = await page.locator('.coinslot').boundingBox();
 await page.mouse.move(coinBox.x + coinBox.width / 2, coinBox.y + coinBox.height / 2);
 await page.mouse.down();
@@ -754,8 +807,29 @@ check('red die matches attachment cap', ATTACH_FACES[pips[1] - 1] === capValues[
     /Roll a map in stage 2 first/.test(await fresh.locator('.keys__empty').textContent()));
   await fresh.close();
 
+  // Choosing a difficulty voids the rolled map — the pool it came from just
+  // changed — and the sections above end on a legend click, so roll one.
+  if ((await page.locator('.reel__value').first().textContent()).trim() === '—') {
+    if (!(await paid())) {
+      await page.locator('.legend__item--black').click();
+      await page.waitForSelector('.coin:not(.coin--spent)', { timeout: 8000 });
+      await page.locator('.coin:not(.coin--spent)').click();
+      await page.waitForFunction(
+        () => document.querySelector('.coinslot__text')?.textContent?.trim() === 'Inserted',
+        { timeout: 6000 },
+      );
+    }
+    await page.locator('.lever').click();
+    await page.waitForFunction(
+      () => !document.querySelector('.reel.is-spinning') &&
+        document.querySelectorAll('.reel__value')[0]?.textContent?.trim() !== '—',
+      { timeout: 60000 },
+    ).catch(() => {});
+    await page.waitForTimeout(600);
+  }
   const mapName = (await page.locator('.reel__value').first().textContent()).trim();
   const drawBtn = page.getByRole('button', { name: /Draw a card|Hand full|Drawing/ });
+  check('a map is on the reel', mapName !== '—', mapName);
   check('draw unlocks with a map on the reel', !(await drawBtn.isDisabled()), mapName);
 
   const counter = async () => (await page.locator('.keys__count').textContent()).trim();
