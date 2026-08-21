@@ -303,20 +303,44 @@ export function SlotReel({
     };
 
     const el = stripRef.current;
+
+    /**
+     * The fallback is armed from when the transition ACTUALLY STARTS, not from
+     * here.
+     *
+     * A transition begins a frame or two after the style is applied, and on a
+     * loaded machine that gap runs to hundreds of milliseconds. A fallback
+     * measured from this point would then fire while the spin was still
+     * running, set `transition: none`, and cancel it — clipping the reel and
+     * losing the transitionend the queue waits on. Re-arming on transitionstart
+     * makes the margin relative to the animation rather than to a guess.
+     *
+     * The initial, much longer arming is the backstop for a transition that
+     * never starts at all: better a late reel than a queue that stalls.
+     */
+    let fallback = 0;
+    const arm = (ms: number) => {
+      clearTimeout(fallback);
+      fallback = window.setTimeout(land, ms);
+      timers.current.push(fallback);
+    };
+    const onStart = (e: TransitionEvent) => {
+      if (e.propertyName === 'transform') arm(duration + 250);
+    };
     const onEnd = (e: TransitionEvent) => {
       if (e.propertyName !== 'transform') return;
       land();
     };
     if (el) {
+      el.addEventListener('transitionstart', onStart);
       el.addEventListener('transitionend', onEnd);
-      // Fallback only — late enough that it can never cut a running spin short,
-      // but the queue still advances if the event is ever dropped.
-      timers.current.push(window.setTimeout(land, duration + 400));
+      arm(duration + 2500);
     } else {
-      timers.current.push(window.setTimeout(land, duration));
+      arm(duration);
     }
 
     return () => {
+      el?.removeEventListener('transitionstart', onStart);
       el?.removeEventListener('transitionend', onEnd);
       clearTimers();
     };

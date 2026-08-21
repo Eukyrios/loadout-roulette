@@ -53,6 +53,91 @@ export const SlotMachine = forwardRef<HTMLDivElement, Props>(function SlotMachin
 ) {
   const disabled = credits === 0 || anySpinning;
 
+  /**
+   * Keep the column that is currently spinning in view.
+   *
+   * On a phone the reels are one-per-screen and snap, so without this a pull
+   * would spend most of its time animating columns you cannot see. Because the
+   * reels run strictly in order, following the active one walks the whole set
+   * for you.
+   *
+   * Scrolls the strip directly rather than using scrollIntoView, which would
+   * also scroll the PAGE to bring the cabinet into view and yank the viewport
+   * around mid-spin. On desktop nothing overflows, so this is a no-op.
+   */
+  const cabinetRef = useRef<HTMLDivElement>(null);
+  const activeSlot = SLOTS.findIndex((s) => spinning[s.id]);
+  const prevActive = useRef(-1);
+  const scrollAnim = useRef({ raf: 0, timer: 0 });
+
+  useEffect(() => {
+    const cab = cabinetRef.current;
+    if (activeSlot < 0) {
+      prevActive.current = -1;
+      return;
+    }
+    const reel = cab?.querySelectorAll<HTMLElement>('.reel')[activeSlot];
+    if (!cab || !reel) return;
+    if (cab.scrollWidth <= cab.clientWidth) return; // desktop: nothing to scroll
+
+    const from = cab.scrollLeft;
+    const target = reel.offsetLeft - (cab.clientWidth - reel.clientWidth) / 2;
+    const wasFirst = prevActive.current < 0;
+    prevActive.current = activeSlot;
+    if (Math.abs(target - from) < 2) return;
+
+    /**
+     * Wait on the column that just landed before sliding to the next one.
+     *
+     * The reels run back to back, so the moment one finishes the next begins —
+     * and moving straight away whipped the view off a result before it could be
+     * read. So: hold, then glide.
+     *
+     * Both are scaled from the INCOMING column's spin length rather than fixed.
+     * The shortest spin is 700ms, and a fixed hold-plus-glide long enough to
+     * feel unhurried on a rare 1750ms column would still be running when a
+     * short one had already landed — the view would fall further behind with
+     * every column. Sized as fractions, the pause is generous when there is
+     * room and tightens when there is not, and it always arrives before the
+     * next reel stops.
+     */
+    const span = durations[SLOTS[activeSlot].id] ?? 900;
+    const dwell = wasFirst ? 0 : Math.min(460, Math.max(140, span * 0.3));
+    const glide = Math.min(560, Math.max(260, span * 0.4));
+
+    const cancel = () => {
+      cancelAnimationFrame(scrollAnim.current.raf);
+      clearTimeout(scrollAnim.current.timer);
+      // Snap is suspended for the glide below. If a glide is interrupted — the
+      // next column starting, or the component unmounting — it has to come
+      // back, or swipe-to-snap stays dead for the rest of the session.
+      cab.style.scrollSnapType = '';
+    };
+    cancel();
+
+    const slide = () => {
+      // Mandatory snap fights a per-frame scrollLeft, yanking the strip to the
+      // nearest column mid-glide. Suspended for the duration; the destination
+      // is a snap point anyway, so it re-engages cleanly.
+      cab.style.scrollSnapType = 'none';
+      const t0 = performance.now();
+      const step = (now: number) => {
+        const u = Math.min(1, (now - t0) / glide);
+        const e = u < 0.5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2;
+        cab.scrollLeft = from + (target - from) * e;
+        if (u < 1) {
+          scrollAnim.current.raf = requestAnimationFrame(step);
+        } else {
+          cab.style.scrollSnapType = '';
+        }
+      };
+      scrollAnim.current.raf = requestAnimationFrame(step);
+    };
+
+    scrollAnim.current.timer = window.setTimeout(slide, dwell);
+    return cancel;
+  }, [activeSlot, durations]);
+
   /* ----------------------------------------------------------- the lever */
   // A real slot lever is dragged, not clicked. Both work here: drag past the
   // commit point, or just click it.
@@ -103,6 +188,9 @@ export const SlotMachine = forwardRef<HTMLDivElement, Props>(function SlotMachin
       if (disabled) return;
       if (e.button !== 0 && e.pointerType === 'mouse') return;
       e.preventDefault();
+      // Capture so the pull survives the finger sliding off the knob, and so
+      // the browser cannot reinterpret it as a page scroll mid-drag.
+      e.currentTarget.setPointerCapture?.(e.pointerId);
       startY.current = e.clientY;
       moved.current = false;
       setDragging(true);
@@ -137,7 +225,7 @@ export const SlotMachine = forwardRef<HTMLDivElement, Props>(function SlotMachin
       </div>
 
       <div className="machine__body">
-        <div className="cabinet">
+        <div className="cabinet" ref={cabinetRef}>
           <div className="cabinet__glass" aria-hidden="true" />
           <div className="payline" aria-hidden="true">
             <span className="payline__arrow payline__arrow--l">▶</span>

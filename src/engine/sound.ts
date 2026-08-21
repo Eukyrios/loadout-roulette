@@ -254,6 +254,19 @@ export const sfx = {
     tone(990, 0.18, 0.035, 'sine', 0.19);
     knock(320, 0.1, 0.09, 4);
   },
+  /** Token cutting through the air when it is waved about. */
+  coinWhoosh: (strength = 1) => {
+    const v = Math.max(0.15, Math.min(1, strength));
+    knock(700 + Math.random() * 900, 0.09, 0.012 + 0.03 * v, 1.6);
+  },
+  /** Token striking the edge of the screen. */
+  coinClank: (strength = 1) => {
+    const v = Math.max(0.2, Math.min(1, strength));
+    knock(2100 + Math.random() * 700, 0.05, 0.05 + 0.1 * v, 11);
+    tone(1480 + Math.random() * 220, 0.13, 0.03 + 0.05 * v, 'triangle', 0.01);
+    tone(880, 0.2, 0.02 + 0.03 * v, 'sine', 0.05);
+  },
+
   /** Mechanical clunk of the arm bottoming out. */
   lever: () => {
     sweep(430, 90, 0.22, 0.075, 'square');

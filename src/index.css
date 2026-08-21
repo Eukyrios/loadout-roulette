@@ -340,6 +340,14 @@ body {
 
 /* The token is minted in the difficulty you rolled: bronze for Easy, steel for
    Normal, gold for Hard. Tone variants just re-point these variables. */
+/* Without this a touch drag is claimed by the browser as a page pan before
+   our pointer handlers ever see it, so the coin stays put and the page
+   scrolls instead. */
+.coin,
+.lever {
+  touch-action: none;
+}
+
 .coin {
   --c-dark: #8a6d1c;
   --c-light: #f6de83;
@@ -427,6 +435,44 @@ body {
   font-weight: 800;
   color: var(--c-ink);
   letter-spacing: 0.04em;
+}
+
+/* Held at its top edge, so the sway pivots there and it dangles from the
+   pointer instead of spinning about its own middle. */
+.coin.is-dragging {
+  transform-origin: 50% 7px;
+}
+
+/* Sparks thrown off when the token strikes the edge of the screen. Plain
+   absolutely-positioned spans: there are only a handful at a time, so a canvas
+   would be more machinery than the effect is worth. */
+.sparks {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 70;
+}
+
+.spark {
+  position: absolute;
+  width: 5px;
+  height: 5px;
+  margin: -2.5px 0 0 -2.5px;
+  border-radius: 50%;
+  background: var(--c-light, #f6de83);
+  box-shadow: 0 0 8px var(--c-light, #f6de83);
+  animation: sparkfly 0.56s cubic-bezier(0.2, 0.7, 0.3, 1) forwards;
+}
+
+@keyframes sparkfly {
+  0% {
+    transform: translate(0, 0) scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(var(--dx), var(--dy)) scale(0.3);
+    opacity: 0;
+  }
 }
 
 .coin.is-dragging {
@@ -1484,6 +1530,88 @@ body {
   }
   .lever {
     width: 140px;
+  }
+}
+
+/* --------------------------------------------------------------- phones */
+@media (max-width: 700px) {
+  .app {
+    padding: 16px 12px 44px;
+  }
+
+  /* The crown ran the badge and both readouts on one line, which pushed the
+     difficulty half off the side of a phone. Let it wrap instead. */
+  .machine__top {
+    height: auto;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 10px 14px;
+  }
+
+  .machine__readouts {
+    width: 100%;
+  }
+
+  .machine__mode {
+    flex: 1 1 0;
+    align-items: flex-start;
+    min-width: 0;
+    padding: 5px 10px;
+  }
+
+  .machine__mode-value {
+    font-size: 15px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 100%;
+  }
+
+  /* ONE COLUMN AT A TIME.
+     Seven reels on a phone meant a horizontal scrollbar and a lot of hunting.
+     Each reel now fills the width and the strip snaps, so a swipe moves you
+     exactly one column. SlotMachine scrolls the spinning column into view as
+     the run advances, so a pull still shows you every reel. */
+  .cabinet {
+    scroll-snap-type: x mandatory;
+    padding: 12px 0;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .cabinet__reels {
+    gap: 0;
+    /* The desktop rule is min-width: max-content, which is circular against a
+       percentage child: the row grows to fit all seven reels, then each reel's
+       100% resolves against THAT. Result was a 1304px column in a 330px
+       window. Anchor the row to the viewport and let the reels overflow it. */
+    min-width: 0;
+    width: 100%;
+  }
+
+  .reel {
+    flex: 0 0 100%;
+    width: 100%;
+    scroll-snap-align: center;
+    padding: 0 12px;
+  }
+
+  /* The payline spans the viewport, so it has to sit inside the padding. */
+  .payline {
+    left: 12px;
+    right: 12px;
+  }
+
+  .machine__side {
+    justify-content: center;
+  }
+
+  .stage__wheel {
+    min-height: 260px;
+  }
+
+  .secttl__title--lg {
+    font-size: 24px;
   }
 }
 
