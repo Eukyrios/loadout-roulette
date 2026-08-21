@@ -18,7 +18,6 @@ interface Props {
   /** Spin length in ms. Staggering this across reels is what makes them
    *  settle one after another. */
   duration: number;
-  locked: boolean;
   onHold: () => void;
   onSpin: () => void;
   onNudge: (dir: -1 | 1) => void;
@@ -64,7 +63,6 @@ export function SlotReel({
   held,
   spinning,
   duration,
-  locked,
   onHold,
   onSpin,
   onNudge,
@@ -79,6 +77,9 @@ export function SlotReel({
   const [moveMs, setMoveMs] = useState(0);
   const [blur, setBlur] = useState(false);
   const [flash, setFlash] = useState(false);
+
+  /** The sliding column. Needed so a nudge can settle on its transitionend. */
+  const stripRef = useRef<HTMLDivElement>(null);
 
   const cb = useRef({ onSpinEnd, onTick });
   cb.current = { onSpinEnd, onTick };
@@ -108,6 +109,9 @@ export function SlotReel({
 
   const empty = pool.length === 0;
   const entryId = entry?.id ?? null;
+  // Gear tier of the current item, if this slot has one at all. Map, operator
+  // and weapon carry no tier and stay neutral.
+  const tier = Number(entry?.attrs?.tier ?? 0);
 
   /* -- static rest state ------------------------------------------------- */
   const [above, below] = neighbours(pool, entry);
@@ -169,22 +173,49 @@ export function SlotReel({
     setMoving(false);
     setMoveMs(NUDGE_MS);
 
+    /**
+     * Collapse back to the canonical [above, entry, below] at offset 0 once the
+     * slide lands. Visually identical — the payline holds the same item — but
+     * it leaves every reel in one predictable resting shape rather than a
+     * four-cell strip parked at an offset.
+     */
+    const settle = () => {
+      setMoving(false);
+      setStrip([above, entry, below]);
+      setOffset(0);
+    };
+
     afterPaint(() => {
       setMoving(true);
       setOffset(dir === 1 ? -CELL : 0);
+
+      // Settle on the transition ACTUALLY ending, not on a wall-clock timer.
+      // A timer starts counting here, but the transition does not begin until
+      // the next style recalculation — and on a slow machine that gap is tens
+      // of milliseconds. A NUDGE_MS-length timer then fires mid-slide and
+      // truncates it, which is both visibly wrong and reports as a cancelled
+      // transition rather than a finished one.
+      const el = stripRef.current;
+      if (!el) {
+        timers.current.push(window.setTimeout(settle, NUDGE_MS + 30));
+        return;
+      }
+      const onEnd = (e: TransitionEvent) => {
+        if (e.propertyName !== 'transform') return;
+        el.removeEventListener('transitionend', onEnd);
+        settle();
+      };
+      el.addEventListener('transitionend', onEnd);
+      // Belt and braces: if the browser drops the event entirely (a background
+      // tab, a coalesced frame), settle anyway — but late enough that it can
+      // never cut a running slide short.
+      timers.current.push(
+        window.setTimeout(() => {
+          el.removeEventListener('transitionend', onEnd);
+          settle();
+        }, NUDGE_MS + 400),
+      );
     });
-    // Once it has landed, collapse back to the canonical [above, entry, below]
-    // at offset 0. Visually identical — the payline holds the same item — but
-    // it leaves every reel in one predictable resting shape instead of a
-    // four-cell strip parked at an offset, which the next slide would have to
-    // reason about.
-    timers.current.push(
-      window.setTimeout(() => {
-        setMoving(false);
-        setStrip([above, entry, below]);
-        setOffset(0);
-      }, NUDGE_MS + 30),
-    );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [restKey, spinning]);
 
@@ -253,7 +284,7 @@ export function SlotReel({
     <div
       className={`reel${held ? ' is-held' : ''}${spinning ? ' is-spinning' : ''}${
         empty ? ' is-empty' : ''
-      }${flash ? ' is-flash' : ''}`}
+      }${flash ? ' is-flash' : ''}${tier ? ` reel--t${tier}` : ''}`}
     >
       <div className="reel__head">
         <span className="reel__label">{slot.label}</span>
@@ -261,7 +292,11 @@ export function SlotReel({
       </div>
 
       <div className="reel__window">
-        <div className={`reel__strip${blur ? ' is-blur' : ''}`} style={stripStyle}>
+        <div
+          ref={stripRef}
+          className={`reel__strip${blur ? ' is-blur' : ''}`}
+          style={stripStyle}
+        >
           {strip.map((item, i) => (
             <div className="cell" key={`${item?.id ?? 'x'}-${i}`}>
               {empty ? (
@@ -287,7 +322,7 @@ export function SlotReel({
           type="button"
           className="btn btn--icon"
           onClick={() => onNudge(-1)}
-          disabled={empty || spinning || locked}
+          disabled={empty || spinning}
           aria-label={`Previous ${slot.label}`}
         >
           ▲
@@ -296,7 +331,7 @@ export function SlotReel({
           type="button"
           className={`btn btn--hold${held ? ' is-on' : ''}`}
           onClick={onHold}
-          disabled={empty || locked}
+          disabled={empty}
           aria-pressed={held}
         >
           {held ? 'Held' : 'Hold'}
@@ -305,7 +340,7 @@ export function SlotReel({
           type="button"
           className="btn btn--icon"
           onClick={() => onNudge(1)}
-          disabled={empty || spinning || locked}
+          disabled={empty || spinning}
           aria-label={`Next ${slot.label}`}
         >
           ▼
@@ -316,7 +351,7 @@ export function SlotReel({
         type="button"
         className="reel__respin"
         onClick={onSpin}
-        disabled={empty || spinning || locked}
+        disabled={empty || spinning}
       >
         Re-spin
       </button>

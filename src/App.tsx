@@ -63,8 +63,6 @@ export default function App() {
   const [credits, setCredits] = useState(0);
   /** Difficulty stamped on the token currently inside the machine. */
   const [creditMode, setCreditMode] = useState<Entry | null>(null);
-  /** True once a coin has ever been spent — unlocks the per-reel controls. */
-  const [armed, setArmed] = useState(false);
 
   // --- dice ----------------------------------------------------------------
   const [loadoutCost, setLoadoutCost] = useState<Entry | null>(null);
@@ -98,12 +96,9 @@ export default function App() {
     [filters, rollsWithMode, mode],
   );
   const anySpinning = Object.values(spinning).some(Boolean);
-  /**
-   * Two different locks. The per-reel controls open once you have EVER paid
-   * (`armed`) so you can keep tweaking a result after the pull; the lever needs
-   * an unspent credit, so a fresh full roll always costs a token.
-   */
-  const locked = !armed;
+  // Only the lever costs a token. The per-reel controls are live from the
+  // start, so a single column can be re-spun or nudged without paying for a
+  // full pull first.
 
   /* -------------------------------------------------------- the wheel */
 
@@ -169,7 +164,6 @@ export default function App() {
   const pull = useCallback(() => {
     if (credits === 0 || anySpinning) return;
     setCredits((c) => c - 1);
-    setArmed(true);
 
     const nextSpins = { ...spins };
     for (const slot of SLOTS) {
@@ -201,7 +195,7 @@ export default function App() {
 
   const spinOne = useCallback(
     (slotId: string) => {
-      if (!armed || pools[slotId]?.length === 0) return;
+      if (pools[slotId]?.length === 0) return;
       const nextSpin = (spins[slotId] ?? 0) + 1;
       const entry = rollSlot(slotId, seed, nextSpin, filters, rollsWithMode, rolls[slotId]?.entry);
       setSpins((p) => ({ ...p, [slotId]: nextSpin }));
@@ -209,7 +203,7 @@ export default function App() {
       setDurations((d) => ({ ...d, [slotId]: SPIN_BASE }));
       setSpinning((p) => ({ ...p, [slotId]: true }));
     },
-    [armed, filters, pools, rolls, rollsWithMode, seed, spins],
+    [filters, pools, rolls, rollsWithMode, seed, spins],
   );
 
   const nudge = useCallback(
@@ -288,7 +282,7 @@ export default function App() {
       return changed ? next : prev;
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pools, armed]);
+  }, [pools]);
 
   const rollDice = useCallback(async () => {
     if (diceBusy) return;
@@ -441,7 +435,6 @@ export default function App() {
           pools={pools}
           spinning={spinning}
           durations={durations}
-          locked={locked}
           credits={credits}
           creditMode={creditMode}
           anySpinning={anySpinning}

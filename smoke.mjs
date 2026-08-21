@@ -94,7 +94,13 @@ check('result tab is gone', (await page.locator('.result').count()) === 0);
 /* --------------------------------------------------------- start state */
 
 check('seven reels', (await page.locator('.reel').count()) === 7);
-check('machine starts locked', await page.locator('.machine.is-locked').isVisible());
+// The per-reel controls are live from the very start now — only the lever
+// costs a token, so a single column can be re-spun without paying for a pull.
+check(
+  'per-reel controls are live before any pull',
+  (await page.locator('.reel').nth(2).locator('.reel__respin').isEnabled()) &&
+    (await page.locator('.reel').nth(2).locator('.btn--hold').isEnabled()),
+);
 check('lever disabled before payment', await page.locator('.lever').isDisabled());
 check('indicator shows no token', (await modeIndicator()) === 'No token');
 const startValues = await page.locator('.reel__value').allTextContents();
@@ -178,7 +184,7 @@ await page.waitForFunction(
 );
 check('token accepted', await paid());
 check('indicator shows the difficulty, not a count', (await modeIndicator()) === mode, await modeIndicator());
-check('machine unlocked', (await page.locator('.machine.is-locked').count()) === 0);
+check('cabinet never renders a locked state', (await page.locator('.machine.is-locked').count()) === 0);
 check('lever now enabled', await page.locator('.lever').isEnabled());
 check('lever reads PULL DOWN when paid', (await page.locator('.lever__text').textContent())?.trim() === 'PULL DOWN');
 
@@ -208,6 +214,13 @@ check('indicator keeps the difficulty in play', (await modeIndicator()) === mode
 /* ------------------------------------------------------- hold + a click */
 
 check('controls stay usable with no token', await page.locator('.reel').nth(2).locator('.btn--hold').isEnabled());
+
+// A single column can be spun on its own, with no credit in the machine.
+const soloBefore = (await page.locator('.reel').nth(2).locator('.reel__value').textContent()).trim();
+await page.locator('.reel').nth(2).locator('.reel__respin').click();
+await page.waitForTimeout(2200);
+const soloAfter = (await page.locator('.reel').nth(2).locator('.reel__value').textContent()).trim();
+check('a single column can be re-spun without a token', soloAfter !== '—', `${soloBefore} -> ${soloAfter}`);
 const heldReel = page.locator('.reel').nth(2);
 await heldReel.locator('.btn--hold').click();
 const heldName = (await heldReel.locator('.reel__value').textContent())?.trim();
@@ -240,6 +253,19 @@ const opReel = page.locator('.reel').nth(1); // operator — a 16-deep pool
 const cellNames = async () =>
   (await opReel.locator('.cell__name').allTextContents()).map((t) => t.trim());
 
+// Wait for the slide to finish rather than guessing at a delay: fixed waits
+// are both slower than needed and unreliable on a loaded machine.
+const settle = () =>
+  page
+    .waitForFunction(
+      () => {
+        const el = document.querySelectorAll('.reel')[1].querySelector('.reel__strip');
+        return el.children.length === 3 && getComputedStyle(el).transform === 'matrix(1, 0, 0, 1, 0, 0)';
+      },
+      { timeout: 4000 },
+    )
+    .catch(() => {});
+
 let dupSeen = null;
 let mismatch = null;
 for (let i = 0; i < 12; i++) {
@@ -249,7 +275,7 @@ for (let i = 0; i < 12; i++) {
   // The cell below the payline must be the one that arrives when you press ▼.
   const expected = before[2];
   await opReel.getByRole('button', { name: /^Next / }).click();
-  await page.waitForTimeout(260); // let the 190ms slide settle
+  await settle();
   const after = await cellNames();
   if (expected && after[1] && after[1] !== expected) {
     mismatch ??= `expected ${expected}, got ${after[1]}`;
@@ -265,7 +291,7 @@ for (let i = 0; i < 6; i++) {
   const before = await cellNames();
   const expected = before[0];
   await opReel.getByRole('button', { name: /^Previous / }).click();
-  await page.waitForTimeout(260);
+  await settle();
   const after = await cellNames();
   if (expected && after[1] && after[1] !== expected) {
     upMismatch ??= `expected ${expected}, got ${after[1]}`;
@@ -273,15 +299,22 @@ for (let i = 0; i < 6; i++) {
 }
 check('nudging up promotes the cell above the payline', upMismatch === null, upMismatch ?? '');
 
-await page.evaluate(() => {
-  const el = document.querySelectorAll('.reel')[1].querySelector('.reel__strip');
-  window.__slide = [];
-  el.addEventListener('transitionend', (e) => window.__slide.push(e.propertyName));
-});
+// Deterministic signal that the slide path was taken: a slide builds a FOUR
+// cell strip spanning the old and new positions. A snap only ever renders
+// three. Unlike watching for transitionend, this does not depend on a real
+// frame being rendered — under a software renderer the browser can start the
+// transition late or coalesce it away, which is indistinguishable from a snap
+// no matter how long you wait.
 await opReel.getByRole('button', { name: /^Next / }).click();
-await page.waitForTimeout(600);
-const slid = await page.evaluate(() => window.__slide);
-check('nudging slides the strip rather than snapping', slid.includes('transform'), JSON.stringify(slid));
+const spanned = await page
+  .waitForFunction(
+    () => document.querySelectorAll('.reel')[1].querySelector('.reel__strip').children.length === 4,
+    { timeout: 2000 },
+  )
+  .then(() => true)
+  .catch(() => false);
+check('nudging slides the strip rather than snapping', spanned);
+await settle();
 
 // And it comes to rest in one predictable shape.
 const restShape = await page.evaluate(() => {

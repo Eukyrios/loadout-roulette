@@ -12,8 +12,8 @@ interface Props {
   pools: Record<string, Entry[]>;
   spinning: Record<string, boolean>;
   durations: Record<string, number>;
-  /** True until a coin has been inserted — reels are inert. */
-  locked: boolean;
+  /** Unspent tokens. Gates the lever only — the per-reel controls are
+   *  always live. */
   credits: number;
   /** Difficulty of the token currently in the machine. */
   creditMode: Entry | null;
@@ -36,7 +36,6 @@ export const SlotMachine = forwardRef<HTMLDivElement, Props>(function SlotMachin
     pools,
     spinning,
     durations,
-    locked,
     credits,
     creditMode,
     onHold,
@@ -111,13 +110,10 @@ export const SlotMachine = forwardRef<HTMLDivElement, Props>(function SlotMachin
   const armStyle = { transform: `scaleY(${1 - pull * 0.55})` };
   const knobStyle = { transform: `translateY(${pull * LEVER_TRAVEL}px)` };
 
-  // Dim the cabinet only when there is genuinely nothing to do: never paid AND
-  // no credit waiting.
-  const dimmed = locked && credits === 0;
   const tone = creditMode?.attrs?.color ?? 'none';
 
   return (
-    <div className={`machine${dimmed ? ' is-locked' : ''}`}>
+    <div className="machine">
       <div className="machine__top">
         <div className="machine__badge">
           <span className="machine__badge-sub">Delta Force</span>
@@ -148,7 +144,6 @@ export const SlotMachine = forwardRef<HTMLDivElement, Props>(function SlotMachin
                 held={rolls[slot.id]?.held ?? false}
                 spinning={!!spinning[slot.id]}
                 duration={durations[slot.id] ?? 1600}
-                locked={locked}
                 onHold={() => onHold(slot.id)}
                 onSpin={() => onSpin(slot.id)}
                 onNudge={(dir) => onNudge(slot.id, dir)}
