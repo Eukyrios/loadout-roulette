@@ -146,6 +146,7 @@ export const SlotMachine = forwardRef<HTMLDivElement, Props>(function SlotMachin
                 duration={durations[slot.id] ?? 1600}
                 onHold={() => onHold(slot.id)}
                 onSpin={() => onSpin(slot.id)}
+                canSpin={credits > 0}
                 onNudge={(dir) => onNudge(slot.id, dir)}
                 onSpinEnd={() => onSpinEnd(slot.id)}
                 onTick={onTick}

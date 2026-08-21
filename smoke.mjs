@@ -94,12 +94,20 @@ check('result tab is gone', (await page.locator('.result').count()) === 0);
 /* --------------------------------------------------------- start state */
 
 check('seven reels', (await page.locator('.reel').count()) === 7);
-// The per-reel controls are live from the very start now — only the lever
-// costs a token, so a single column can be re-spun without paying for a pull.
+// Hold and the nudge arrows only rearrange what you already have, so they are
+// free from the start. Spin re-rolls a column, so it costs a token like the
+// lever does.
 check(
-  'per-reel controls are live before any pull',
-  (await page.locator('.reel').nth(2).locator('.reel__respin').isEnabled()) &&
-    (await page.locator('.reel').nth(2).locator('.btn--hold').isEnabled()),
+  'hold is free before any pull',
+  await page.locator('.reel').nth(2).locator('.btn--hold').isEnabled(),
+);
+check(
+  'column spin is locked without a token',
+  await page.locator('.reel').nth(2).locator('.reel__respin').isDisabled(),
+);
+check(
+  'column spin button reads Spin',
+  (await page.locator('.reel').nth(2).locator('.reel__respin').textContent()).trim() === 'Spin',
 );
 check('lever disabled before payment', await page.locator('.lever').isDisabled());
 check('indicator shows no token', (await modeIndicator()) === 'No token');
@@ -197,12 +205,58 @@ await page.mouse.up();
 await page.waitForTimeout(500);
 check('drag-to-pull spins the reels', (await page.locator('.reel.is-spinning').count()) > 0);
 
+// The rarity tint must stay hidden while the reels are moving. `entry` is
+// decided the instant the lever is pulled, so a column coloured straight away
+// would give the result away before it landed.
+check(
+  'rarity stays hidden while spinning',
+  (await page.locator('.reel.is-spinning[class*="reel--t"]').count()) === 0,
+);
+
+// Each reel's transition length IS its spin time, so it can be read mid-spin
+// and checked against the item that eventually lands.
+const spinMs = await page.evaluate(() =>
+  [...document.querySelectorAll('.reel')].map((r) =>
+    Math.round(parseFloat(getComputedStyle(r.querySelector('.reel__strip')).transitionDuration) * 1000),
+  ),
+);
+
 await page.waitForTimeout(1500);
 const midway = await page.locator('.reel.is-spinning').count();
 await page.waitForFunction(() => document.querySelectorAll('.reel.is-spinning').length === 0, {
   timeout: 25000,
 });
 check('reels stop in sequence', midway > 0 && midway < 7, `${midway} still spinning midway`);
+
+// Now the reels have landed, the tint appears.
+check(
+  'rarity revealed once the reels land',
+  (await page.locator('.reel[class*="reel--t"]').count()) > 0,
+  `${await page.locator('.reel[class*="reel--t"]').count()} tinted`,
+);
+
+// Spin time = base + per-column stagger + a stretch for the tier that landed.
+// Mirrors SPIN_BASE / SPIN_STEP / RARITY_MS in App.tsx.
+const tiers = await page.evaluate(() =>
+  [...document.querySelectorAll('.reel')].map((r) => {
+    const c = [...r.classList].find((x) => x.startsWith('reel--t'));
+    return c ? Number(c.slice(7)) : 0;
+  }),
+);
+const expectedMs = tiers.map((t, i) => 1500 + i * 400 + Math.max(0, (t || 1) - 1) * 320);
+const timingOk = spinMs.every((ms, i) => ms === expectedMs[i]);
+check(
+  'spin time scales with the rarity that lands',
+  timingOk,
+  `tiers ${tiers.join(',')} | got ${spinMs.join(',')} | want ${expectedMs.join(',')}`,
+);
+// And it genuinely varies — a run where every tier were equal would pass the
+// formula check while proving nothing.
+check(
+  'rarer results really do spin longer',
+  new Set(tiers.filter(Boolean)).size < 2 || new Set(spinMs.slice(3)).size > 1,
+  `gear spin times ${spinMs.slice(3).join(',')}`,
+);
 
 const values = await page.locator('.reel__value').allTextContents();
 check('all reels filled', values.every((v) => v.trim() && v.trim() !== '—'), values.join(' | '));
@@ -215,12 +269,32 @@ check('indicator keeps the difficulty in play', (await modeIndicator()) === mode
 
 check('controls stay usable with no token', await page.locator('.reel').nth(2).locator('.btn--hold').isEnabled());
 
-// A single column can be spun on its own, with no credit in the machine.
-const soloBefore = (await page.locator('.reel').nth(2).locator('.reel__value').textContent()).trim();
+// A column spin needs a token, and spends it.
+check(
+  'column spin stays locked with no token',
+  await page.locator('.reel').nth(2).locator('.reel__respin').isDisabled(),
+);
+await page.locator('.legend__item--black').click();
+await page.waitForSelector('.coin', { timeout: 5000 });
+await page.locator('.coin').click();
+await page.waitForFunction(
+  () => document.querySelector('.coinslot__text')?.textContent?.trim() === 'Inserted',
+  { timeout: 5000 },
+);
+check(
+  'column spin unlocks once a token is in',
+  await page.locator('.reel').nth(2).locator('.reel__respin').isEnabled(),
+);
 await page.locator('.reel').nth(2).locator('.reel__respin').click();
-await page.waitForTimeout(2200);
-const soloAfter = (await page.locator('.reel').nth(2).locator('.reel__value').textContent()).trim();
-check('a single column can be re-spun without a token', soloAfter !== '—', `${soloBefore} -> ${soloAfter}`);
+await page.waitForFunction(
+  () => document.querySelectorAll('.reel.is-spinning').length === 0,
+  { timeout: 20000 },
+);
+check('spinning one column spends the token', !(await paid()));
+check(
+  'column spin re-locks after spending',
+  await page.locator('.reel').nth(2).locator('.reel__respin').isDisabled(),
+);
 const heldReel = page.locator('.reel').nth(2);
 await heldReel.locator('.btn--hold').click();
 const heldName = (await heldReel.locator('.reel__value').textContent())?.trim();

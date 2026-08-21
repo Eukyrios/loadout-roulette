@@ -4,8 +4,19 @@ import type { Entry, SlotSpec } from '../data/types';
 /** Cell height in px. Must match `--cell` in index.css. */
 export const CELL = 76;
 
-/** How many filler cells whip past before the winner shows up. */
-const FILLERS = 22;
+/**
+ * How many filler cells whip past before the winner shows up.
+ *
+ * Derived from the spin length rather than fixed. With a constant count, a
+ * longer spin covers the SAME distance over more time — the reel just crawls,
+ * which reads as sluggish rather than as a longer spin, and makes the rarity
+ * stretch almost invisible. Scaling the count keeps the strip's speed roughly
+ * constant, so extra time becomes extra travel: visibly more items flying past.
+ *
+ * The divisor is set so a base-length spin still yields the 22 cells this used
+ * to hardcode.
+ */
+const fillersFor = (duration: number) => Math.max(10, Math.round(duration / 68));
 /** How long a single-step nudge takes to slide one cell. */
 const NUDGE_MS = 190;
 
@@ -20,6 +31,8 @@ interface Props {
   duration: number;
   onHold: () => void;
   onSpin: () => void;
+  /** A token is loaded, so a single column may be re-rolled. */
+  canSpin: boolean;
   onNudge: (dir: -1 | 1) => void;
   onSpinEnd: () => void;
   /** Fired repeatedly while the strip is moving, for the ratchet sound. */
@@ -65,6 +78,7 @@ export function SlotReel({
   duration,
   onHold,
   onSpin,
+  canSpin,
   onNudge,
   onSpinEnd,
   onTick,
@@ -111,7 +125,12 @@ export function SlotReel({
   const entryId = entry?.id ?? null;
   // Gear tier of the current item, if this slot has one at all. Map, operator
   // and weapon carry no tier and stay neutral.
-  const tier = Number(entry?.attrs?.tier ?? 0);
+  //
+  // Withheld while the reel is spinning: `entry` is decided the moment the
+  // lever is pulled, so colouring the column from it straight away would
+  // announce the rarity before the reel had landed — the one thing the spin
+  // exists to keep you waiting for.
+  const tier = spinning ? 0 : Number(entry?.attrs?.tier ?? 0);
 
   /* -- static rest state ------------------------------------------------- */
   const [above, below] = neighbours(pool, entry);
@@ -230,10 +249,11 @@ export function SlotReel({
     }
 
     const prev = strip[1] ?? entry;
-    const fill = Array.from({ length: FILLERS }, () => rand(pool) ?? null);
+    const fillers = fillersFor(duration);
+    const fill = Array.from({ length: fillers }, () => rand(pool) ?? null);
     const tail = [rand(pool) ?? null, rand(pool) ?? null];
     const next = [rand(pool) ?? null, prev, ...fill, entry, ...tail];
-    const targetIndex = 2 + FILLERS;
+    const targetIndex = 2 + fillers;
 
     setStrip(next);
     setOffset(0);
@@ -351,9 +371,10 @@ export function SlotReel({
         type="button"
         className="reel__respin"
         onClick={onSpin}
-        disabled={empty || spinning}
+        disabled={empty || spinning || !canSpin}
+        title={canSpin ? 'Spend a token to re-roll this column' : 'Needs a token'}
       >
-        Re-spin
+        Spin
       </button>
 
       {slot.hint && <p className="reel__hint">{slot.hint}</p>}

@@ -662,6 +662,9 @@ body {
   background: linear-gradient(180deg, #11161d, #0a0e13);
   border: 1px solid #000;
   box-shadow: inset 0 0 18px rgba(0, 0, 0, 0.95);
+  /* The tier tint is withheld until the reel lands, so let it bloom in rather
+     than snap on at the moment of the reveal. */
+  transition: border-color 0.35s ease, box-shadow 0.35s ease, background 0.35s ease;
 }
 
 /* --- gear tier colours -------------------------------------------------- */

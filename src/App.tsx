@@ -26,6 +26,18 @@ import { StickCup, type StickHandle } from './three/StickCup';
 /** Reel stop cadence. Reel n settles BASE + n·STEP ms after the pull. */
 const SPIN_BASE = 1500;
 const SPIN_STEP = 400;
+/**
+ * Extra spin time per tier above 1 — a rarer result hangs on longer before it
+ * drops. Kept well under SPIN_STEP so the left-to-right settle order still
+ * reads: rarity stretches the cadence, it does not scramble it.
+ */
+const RARITY_MS = 320;
+
+/** How long a reel should spin for the item it is about to land on. */
+const spinTimeFor = (entry: Entry | null, index = 0) =>
+  SPIN_BASE +
+  index * SPIN_STEP +
+  Math.max(0, Number(entry?.attrs?.tier ?? 1) - 1) * RARITY_MS;
 
 function seedFromUrl(): string | null {
   if (typeof window === 'undefined') return null;
@@ -96,9 +108,9 @@ export default function App() {
     [filters, rollsWithMode, mode],
   );
   const anySpinning = Object.values(spinning).some(Boolean);
-  // Only the lever costs a token. The per-reel controls are live from the
-  // start, so a single column can be re-spun or nudged without paying for a
-  // full pull first.
+  // Two ways to spend a token: the lever re-rolls every column, or a single
+  // column's Spin button re-rolls just that one. Hold and the nudge arrows are
+  // free — they only rearrange what you already have.
 
   /* -------------------------------------------------------- the wheel */
 
@@ -171,20 +183,26 @@ export default function App() {
       nextSpins[slot.id] = (nextSpins[slot.id] ?? 0) + 1;
     }
     setSpins(nextSpins);
-    setRolls(rollAll(seed, nextSpins, filters, rollsWithMode));
+    // Rolled up front so each reel's spin time can be set from the item it is
+    // actually going to land on.
+    const nextRolls = rollAll(seed, nextSpins, filters, rollsWithMode);
+    setRolls(nextRolls);
 
     // Stagger the stop times in SLOTS order — this is what makes them settle
-    // one after another rather than all at once.
+    // one after another rather than all at once — then stretch each by the
+    // rarity of its result.
     const live = SLOTS.filter((s) => !rolls[s.id]?.held && pools[s.id].length > 0);
-    setDurations(
-      Object.fromEntries(live.map((s, i) => [s.id, SPIN_BASE + i * SPIN_STEP])),
+    const times = Object.fromEntries(
+      live.map((s, i) => [s.id, spinTimeFor(nextRolls[s.id]?.entry ?? null, i)]),
     );
+    setDurations(times);
     setSpinning(Object.fromEntries(live.map((s) => [s.id, true])));
 
     sfx.lever();
     sfx.reelStart();
-    // Wind the whirr down over the length of the longest reel.
-    const span = SPIN_BASE + Math.max(0, live.length - 1) * SPIN_STEP;
+    // Wind the whirr down over whichever reel actually runs longest, which is
+    // no longer simply the last one now that rarity stretches them.
+    const span = Math.max(SPIN_BASE, ...Object.values(times));
     const t0 = performance.now();
     const id = window.setInterval(() => {
       const u = (performance.now() - t0) / span;
@@ -195,15 +213,18 @@ export default function App() {
 
   const spinOne = useCallback(
     (slotId: string) => {
-      if (pools[slotId]?.length === 0) return;
+      // Costs a token, exactly like the lever. Gating without charging would
+      // make the first coin a permanent unlock and the token meaningless.
+      if (credits === 0 || pools[slotId]?.length === 0) return;
+      setCredits((c) => c - 1);
       const nextSpin = (spins[slotId] ?? 0) + 1;
       const entry = rollSlot(slotId, seed, nextSpin, filters, rollsWithMode, rolls[slotId]?.entry);
       setSpins((p) => ({ ...p, [slotId]: nextSpin }));
       setRolls((p) => ({ ...p, [slotId]: { slotId, entry, held: false } }));
-      setDurations((d) => ({ ...d, [slotId]: SPIN_BASE }));
+      setDurations((d) => ({ ...d, [slotId]: spinTimeFor(entry) }));
       setSpinning((p) => ({ ...p, [slotId]: true }));
     },
-    [filters, pools, rolls, rollsWithMode, seed, spins],
+    [credits, filters, pools, rolls, rollsWithMode, seed, spins],
   );
 
   const nudge = useCallback(
