@@ -7,6 +7,8 @@ import {
   LOADOUT_COST_FACES,
   MODES,
   MODE_BY_ID,
+  SQUAD_BY_ID,
+  STICK_BUNDLE,
   WHEEL_POCKETS,
 } from './data/deltaforce';
 import { SLOTS } from './data/slots';
@@ -15,10 +17,11 @@ import { defaultFilterState, resolvePools } from './engine/filters';
 import { usePersisted } from './engine/persist';
 import { applyPreset } from './engine/presets';
 import { randomSeedCode } from './engine/rng';
-import { emptySlots, rollAll, rollDie, rollPocket, rollSlot } from './engine/roll';
+import { emptySlots, rollAll, rollDie, rollPocket, rollSlot, rollStick } from './engine/roll';
 import { sfx } from './engine/sound';
 import { RouletteWheel, type RouletteHandle } from './three/RouletteWheel';
 import { DiceTray, type DiceHandle } from './three/DiceTray';
+import { StickCup, type StickHandle } from './three/StickCup';
 
 /** Reel stop cadence. Reel n settles BASE + n·STEP ms after the pull. */
 const SPIN_BASE = 1500;
@@ -69,9 +72,14 @@ export default function App() {
   const [dice, setDice] = useState<[number, number] | null>(null);
   const [diceBusy, setDiceBusy] = useState(false);
 
+  // --- squad size, drawn from the stick cup --------------------------------
+  const [squad, setSquad] = useState<Entry | null>(null);
+  const [stickBusy, setStickBusy] = useState(false);
+
   const [panelOpen, setPanelOpen] = useState(false);
 
   const diceRef = useRef<DiceHandle>(null);
+  const stickRef = useRef<StickHandle>(null);
   const wheelRef = useRef<RouletteHandle>(null);
   const coinSlotRef = useRef<HTMLDivElement>(null);
 
@@ -301,6 +309,21 @@ export default function App() {
     setDiceBusy(false);
   }, [diceBusy, seed, spins]);
 
+  const drawStick = useCallback(async () => {
+    if (stickBusy) return;
+    setStickBusy(true);
+    const n = (spins.__sticks ?? 0) + 1;
+    setSpins((p) => ({ ...p, __sticks: n }));
+
+    const index = rollStick(seed, n);
+    // Rattle and draw sounds are fired by the cup itself, in step with the
+    // shake, rather than guessed at with timers out here.
+    await stickRef.current?.draw(index);
+
+    setSquad(SQUAD_BY_ID[STICK_BUNDLE[index]] ?? null);
+    setStickBusy(false);
+  }, [seed, spins, stickBusy]);
+
   // Spacebar: spin the wheel if there's nothing to pull, otherwise pull.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -473,6 +496,50 @@ export default function App() {
             {diceBusy ? 'Rolling…' : 'Throw the dice'}
           </button>
 
+        </div>
+      </section>
+
+      {/* --------------------------------------------------- stage four */}
+      <section className="stage stage--sticks">
+        <div className="stage__wheel stage__wheel--sticks">
+          <StickCup
+            ref={stickRef}
+            className="wheelcanvas"
+            onRattle={(s) => sfx.stickRattle(s)}
+            onDraw={() => sfx.stickDraw()}
+          />
+          <div className="wheelglow" aria-hidden="true" />
+        </div>
+
+        <div className="stage__side">
+          <SectionTitle>4 · Draw for squad size</SectionTitle>
+
+          <div className={`squad squad--${squad?.id ?? 'none'}`}>
+            <span className="squad__bands" aria-hidden="true">
+              {Array.from({ length: Number(squad?.attrs?.bands ?? 0) }, (_, i) => (
+                <span key={i} className="squad__band" />
+              ))}
+            </span>
+            <span className="squad__body">
+              <span className="squad__label">Squad</span>
+              <span className="squad__value">{squad?.name ?? 'Not drawn'}</span>
+              <span className="squad__note">{squad?.note ?? 'Shake the cup and pull a stick'}</span>
+            </span>
+          </div>
+
+          <p className="stage__hint">
+            Twelve sticks, four of each — an even one-in-three. The painted bands
+            say the same thing as the colour, so it reads either way.
+          </p>
+
+          <button
+            type="button"
+            className="btn btn--primary"
+            onClick={() => void drawStick()}
+            disabled={stickBusy}
+          >
+            {stickBusy ? 'Shaking…' : 'Shake the cup'}
+          </button>
         </div>
       </section>
 

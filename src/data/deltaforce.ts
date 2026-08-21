@@ -126,6 +126,38 @@ export const POCKET_COLORS: Record<string, number> = {
 };
 
 /* -------------------------------------------------------------------------- */
+/*  Squad size — the stick draw                                                */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Colours are deliberately NOT the difficulty red/steel/green: two unrelated
+ * things sharing a palette in the same tool reads as a connection that isn't
+ * there. The painted bands (one, two, three) carry the same information as the
+ * colour, so the result is still readable without relying on hue.
+ */
+export const SQUAD_SIZES: Entry[] = [
+  { id: 'solo', name: 'Solo', note: 'Lone operator', attrs: { bands: 1, tip: 0x4aa8e0 } },
+  { id: 'duo', name: 'Duo', note: 'Two-stack', attrs: { bands: 2, tip: 0xe0a23a } },
+  { id: 'trio', name: 'Trio', note: 'Three-stack', attrs: { bands: 3, tip: 0xa86ae0 } },
+];
+
+export const SQUAD_BY_ID = Object.fromEntries(SQUAD_SIZES.map((s) => [s.id, s]));
+
+/**
+ * What is actually in the cup, in the order the sticks are arranged around it.
+ * Four of each, interleaved rather than grouped, so the bundle looks shuffled
+ * at rest and no wedge of the cup is all one colour.
+ *
+ * The odds ARE this array — twelve sticks, four apiece, so an even one-in-three.
+ * Change the mix here and the draw changes with it.
+ */
+export const STICK_BUNDLE: string[] = [
+  'solo', 'duo', 'trio', 'duo',
+  'trio', 'solo', 'duo', 'solo',
+  'trio', 'duo', 'solo', 'trio',
+];
+
+/* -------------------------------------------------------------------------- */
 /*  Maps                                                                       */
 /* -------------------------------------------------------------------------- */
 

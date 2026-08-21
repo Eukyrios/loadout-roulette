@@ -5,7 +5,7 @@
 
 import type { Entry, FilterState, Roll } from '../data/types';
 import { SLOTS } from '../data/slots';
-import { WHEEL_POCKETS } from '../data/deltaforce';
+import { STICK_BUNDLE, WHEEL_POCKETS } from '../data/deltaforce';
 import { poolFor } from './filters';
 import { hashString, mulberry32, pickWeighted } from './rng';
 
@@ -82,6 +82,11 @@ export function rollList(list: Entry[], seed: string, key: string, spin: number)
 /** A d6 result, 1–6. Seeded on the same streams as everything else. */
 export function rollDie(seed: string, key: string, spin: number): number {
   return 1 + Math.floor(streamFor(seed, `die:${key}`, spin)() * 6);
+}
+
+/** Which stick comes out of the cup. Index into STICK_BUNDLE. */
+export function rollStick(seed: string, spin: number): number {
+  return Math.floor(streamFor(seed, 'sticks', spin)() * STICK_BUNDLE.length) % STICK_BUNDLE.length;
 }
 
 /** Which wheel pocket wins this spin. Seeded, so a share link reproduces it. */

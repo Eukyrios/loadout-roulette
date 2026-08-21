@@ -430,7 +430,11 @@ body {
 .machine {
   border: 1px solid var(--line);
   border-radius: 12px;
-  background: linear-gradient(180deg, #2b1a12 0%, #170f0b 26%, #12161c 100%);
+  /* Gunmetal, matching the rest of the theme. This used to be a walnut brown
+     left over from the casino styling, which clashed badly with the green. */
+  background:
+    radial-gradient(120% 80% at 50% 0%, rgba(var(--accent-rgb), 0.08), transparent 62%),
+    linear-gradient(180deg, #17262f 0%, #0e1c24 32%, #081217 100%);
   box-shadow: 0 22px 60px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.06);
   overflow: hidden;
 }
@@ -917,6 +921,100 @@ body {
   font-size: 11px;
   line-height: 1.5;
   color: var(--text-faint);
+}
+
+/* ---------------------------------------------------------- stick draw */
+
+.stage--sticks {
+  margin-bottom: 22px;
+  background:
+    radial-gradient(120% 90% at 50% 0%, rgba(var(--accent-rgb), 0.07), transparent 60%),
+    linear-gradient(180deg, #101f26 0%, #06110f 100%);
+}
+
+.stage__wheel--sticks {
+  min-height: 340px;
+}
+
+.stage__hint {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--text-faint);
+}
+
+.squad {
+  display: grid;
+  grid-template-columns: 46px 1fr;
+  gap: 12px;
+  align-items: center;
+  padding: 11px 13px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: rgba(0, 0, 0, 0.3);
+  transition: border-color 0.25s ease;
+}
+
+/* Stacked painted bands, mirroring the stick that came out of the cup. */
+.squad__bands {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+  width: 46px;
+  height: 46px;
+  padding: 0 7px;
+  border-radius: 7px;
+  background: linear-gradient(160deg, #e2caa0, #b99b66);
+  box-shadow: inset 0 -3px 5px rgba(0, 0, 0, 0.25);
+}
+
+.squad__band {
+  height: 5px;
+  border-radius: 2px;
+  background: var(--squad-tip, #241a10);
+}
+
+.squad--solo {
+  --squad-tip: #4aa8e0;
+}
+.squad--duo {
+  --squad-tip: #e0a23a;
+}
+.squad--trio {
+  --squad-tip: #a86ae0;
+}
+
+.squad--solo,
+.squad--duo,
+.squad--trio {
+  border-color: var(--squad-tip);
+}
+
+.squad__body {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.squad__label {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.squad__value {
+  font-size: 17px;
+  font-weight: 800;
+  color: var(--text);
+}
+
+.squad__note {
+  font-size: 11px;
+  color: var(--text-dim);
 }
 
 .dieresult {

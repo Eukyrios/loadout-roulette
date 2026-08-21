@@ -79,7 +79,12 @@ await page.goto('http://localhost:4321/', { waitUntil: 'networkidle' });
 
 /* -------------------------------------------------------------- render */
 
-check('two canvases mounted', (await page.locator('.wheelcanvas canvas').count()) === 2);
+// Wheel, dice tray, stick cup.
+check(
+  'three canvases mounted',
+  (await page.locator('.wheelcanvas canvas').count()) === 3,
+  `${await page.locator('.wheelcanvas canvas').count()} found`,
+);
 const box = await page.locator('.stage__wheel').first().locator('canvas').boundingBox();
 check('wheel canvas has size', !!box && box.width > 200 && box.height > 200, `${box?.width}x${box?.height}`);
 const diceBox = await page.locator('.stage__wheel--dice canvas').boundingBox();
@@ -287,6 +292,43 @@ const throwDice = async () => {
 };
 const [d1, d2] = [await throwDice(), await throwDice()];
 check('seeded dice are reproducible', d1 === d2, `${d1} vs ${d2}`);
+
+/* --------------------------------------------------------- stick draw */
+
+const squadValue = async () => (await page.locator('.squad__value').textContent()).trim();
+
+check('squad starts undrawn', (await squadValue()) === 'Not drawn', await squadValue());
+check('no bands before the draw', (await page.locator('.squad__band').count()) === 0);
+
+await page.getByRole('button', { name: 'Shake the cup' }).click();
+await page.waitForFunction(
+  () => !/Shaking/.test(document.querySelector('.stage--sticks .btn--primary')?.textContent || ''),
+  { timeout: 20000 },
+);
+const drawn = await squadValue();
+check('stick draw yields a squad size', ['Solo', 'Duo', 'Trio'].includes(drawn), drawn);
+
+// The painted bands must agree with the name — that redundancy is the whole
+// reason the result is readable without relying on colour.
+const BANDS = { Solo: 1, Duo: 2, Trio: 3 };
+const bandCount = await page.locator('.squad__band').count();
+check('bands match the squad size', bandCount === BANDS[drawn], `${drawn} -> ${bandCount}`);
+
+// Same seed, same stick.
+const drawSquad = async () => {
+  const p = await browser.newPage();
+  await p.goto(`http://localhost:4321/?seed=${seed}`, { waitUntil: 'networkidle' });
+  await p.getByRole('button', { name: 'Shake the cup' }).click();
+  await p.waitForFunction(
+    () => !/Shaking/.test(document.querySelector('.stage--sticks .btn--primary')?.textContent || ''),
+    { timeout: 20000 },
+  );
+  const v = (await p.locator('.squad__value').textContent()).trim();
+  await p.close();
+  return v;
+};
+const [s1, s2] = [await drawSquad(), await drawSquad()];
+check('seeded stick draw is reproducible', s1 === s2, `${s1} vs ${s2}`);
 
 /* ------------------------------------------------ layout & settings shape */
 

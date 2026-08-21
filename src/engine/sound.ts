@@ -296,4 +296,19 @@ export const sfx = {
     knock(200, 0.09, 0.06, 3);
     tone(660, 0.14, 0.04, 'triangle', 0.03);
   },
+
+  /* --- stick draw --- */
+  /** Bamboo clattering as the cup is worked. Higher and drier than the dice. */
+  stickRattle: (strength = 1) => {
+    const s = Math.max(0.08, Math.min(1, strength));
+    knock(1200 + Math.random() * 1500, 0.045, 0.03 + 0.08 * s, 14);
+    knock(2600 + Math.random() * 900, 0.03, 0.02 + 0.05 * s, 18);
+  },
+  /** One stick sliding up and out of the bundle. */
+  stickDraw: () => {
+    sweep(320, 1150, 0.34, 0.035, 'triangle');
+    knock(1800, 0.14, 0.05, 7);
+    tone(880, 0.2, 0.04, 'triangle', 0.22);
+    tone(1320, 0.26, 0.03, 'sine', 0.3);
+  },
 };
