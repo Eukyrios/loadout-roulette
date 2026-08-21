@@ -53,6 +53,37 @@ const clamp01 = (u: number) => (u < 0 ? 0 : u > 1 ? 1 : u);
 const easeOutCubic = (u: number) => 1 - Math.pow(1 - u, 3);
 const easeInOut = (u: number) => (u < 0.5 ? 2 * u * u : 1 - Math.pow(-2 * u + 2, 2) / 2);
 
+/**
+ * Furthest a stick's base can sit from the cup's axis before it would clip the
+ * glass. The shake clamps to this, so a hard jostle crowds the sticks against
+ * the wall rather than pushing them through it.
+ */
+const MAX_STICK_R = CUP_BOT_R - STICK_R - 0.1;
+
+const _axis = new THREE.Vector3();
+
+/**
+ * Put a stick at a polar spot on the cup floor, leaning outward by `lean`.
+ *
+ * Position and orientation are set together because they are not independent:
+ * the stick leans along its own radius, so moving it round the cup has to
+ * re-aim the tilt as well. Setting one without the other is what makes a
+ * shaken bundle look like it is sliding rather than tumbling.
+ */
+function placeStick(
+  g: THREE.Object3D,
+  angle: number,
+  radius: number,
+  lean: number,
+  y: number,
+) {
+  g.position.set(radius * Math.cos(angle), y, radius * Math.sin(angle));
+  // Perpendicular to the radial direction, so the tilt tips the stick away
+  // from the cup's centre.
+  _axis.set(Math.sin(angle), 0, -Math.cos(angle));
+  g.quaternion.setFromAxisAngle(_axis, lean);
+}
+
 /** Deterministic 0..1 from an index — stable jitter without Math.random. */
 function hash(i: number, salt: number): number {
   const x = Math.sin(i * 127.1 + salt * 311.7) * 43758.5453;
@@ -187,6 +218,12 @@ export const StickCup = forwardRef<StickHandle, Props>(function StickCup(
       group: THREE.Group;
       home: THREE.Vector3;
       homeQ: THREE.Quaternion;
+      /** Resting polar placement in the cup, and its outward lean. */
+      angle: number;
+      radius: number;
+      lean: number;
+      /** Per-stick offset so no two jostle in step. */
+      phase: number;
     }
     const sticks: Stick[] = [];
     const tipMats: THREE.Material[] = [];
@@ -219,19 +256,24 @@ export const StickCup = forwardRef<StickHandle, Props>(function StickCup(
       }
 
       // Fanned: spread around the cup, each leaning outward along its radius.
+      // Kept in POLAR form, not just as a baked position: the shake moves each
+      // stick around the cup, and doing that in angle/radius keeps it trivially
+      // inside the wall. A cartesian wander would need clamping every frame and
+      // would still square off the corners of the motion.
       const a = (i / COUNT) * Math.PI * 2 + hash(i, 1) * 0.22;
       const r = 0.28 + hash(i, 2) * 0.62;
-      g.position.set(r * Math.cos(a), FLOOR, r * Math.sin(a));
-
       const lean = 0.06 + hash(i, 3) * 0.1;
-      const axis = new THREE.Vector3(Math.sin(a), 0, -Math.cos(a));
-      g.quaternion.setFromAxisAngle(axis, lean);
+      placeStick(g, a, r, lean, FLOOR);
 
       cup.add(g);
       sticks.push({
         group: g,
         home: g.position.clone(),
         homeQ: g.quaternion.clone(),
+        angle: a,
+        radius: r,
+        lean,
+        phase: hash(i, 4) * Math.PI * 2,
       });
     });
     tipMats.forEach((m) => trash.push(m));
@@ -278,14 +320,34 @@ export const StickCup = forwardRef<StickHandle, Props>(function StickCup(
           cup.rotation.x = Math.cos(k * Math.PI * 7.4) * 0.09 * decay;
           cup.position.y = Math.abs(Math.sin(k * Math.PI * 9)) * 0.1 * decay;
 
-          // Sticks chatter against each other inside the cup.
-          sticks.forEach((s, i) => {
-            const wobble = Math.sin(k * Math.PI * 11 + i * 1.7) * 0.05 * decay;
-            const axis = new THREE.Vector3(Math.sin(i * 2.1), 0, -Math.cos(i * 2.1));
-            s.group.quaternion
-              .copy(s.homeQ)
-              .multiply(new THREE.Quaternion().setFromAxisAngle(axis, wobble));
-            s.group.position.y = FLOOR + Math.abs(Math.sin(k * Math.PI * 13 + i)) * 0.07 * decay;
+          // Sticks travel around the cup rather than rattling on the spot.
+          // Three separate motions, each on its own frequency and per-stick
+          // phase so the bundle churns instead of pulsing as one:
+          //   orbit  — they circulate around the cup
+          //   surge  — they slide in and out, knocking on the wall
+          //   bob    — they ride up and down, some poking clear of the rim
+          sticks.forEach((s) => {
+            const ph = s.phase;
+
+            const orbit = Math.sin(k * Math.PI * 6 + ph) * 0.55 * decay;
+            const surge = Math.sin(k * Math.PI * 9.5 + ph * 1.7) * 0.3 * decay;
+            const bob = Math.abs(Math.sin(k * Math.PI * 13 + ph * 2.3));
+
+            const angle = s.angle + orbit;
+            // Clamped to the cup's inner wall, so a big surge crowds the sticks
+            // against the glass instead of pushing them through it.
+            const radius = Math.max(0.1, Math.min(MAX_STICK_R, s.radius + surge));
+
+            // Loose sticks lag the cup they are rattling around in; leaning
+            // them AGAINST the swing is what sells them as unattached.
+            const lean = s.lean + Math.sin(k * Math.PI * 11 + ph * 3.1) * 0.16 * decay;
+            placeStick(
+              s.group,
+              angle,
+              radius,
+              lean + swing * 0.5,
+              FLOOR + bob * 0.34 * decay,
+            );
           });
 
           if (now >= nextRattle) {
