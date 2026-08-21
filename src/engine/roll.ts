@@ -89,6 +89,19 @@ export function rollStick(seed: string, spin: number): number {
   return Math.floor(streamFor(seed, 'sticks', spin)() * STICK_BUNDLE.length) % STICK_BUNDLE.length;
 }
 
+/**
+ * Which key comes out of the fan: an index into the map's keycard deck.
+ *
+ * Drawn WITHOUT replacement — `taken` are the ones already in hand, and you
+ * cannot carry the same key twice. Returns -1 when the deck is exhausted.
+ */
+export function rollKeycard(seed: string, spin: number, deck: number, taken: number[]): number {
+  const free: number[] = [];
+  for (let i = 0; i < deck; i++) if (!taken.includes(i)) free.push(i);
+  if (free.length === 0) return -1;
+  return free[Math.floor(streamFor(seed, 'keys', spin)() * free.length) % free.length];
+}
+
 /** Which wheel pocket wins this spin. Seeded, so a share link reproduces it. */
 export function rollPocket(seed: string, spin: number): number {
   return Math.floor(streamFor(seed, 'wheel', spin)() * WHEEL_POCKETS.length) % WHEEL_POCKETS.length;

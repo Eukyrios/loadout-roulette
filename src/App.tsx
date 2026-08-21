@@ -5,11 +5,13 @@ import { SlotMachine } from './components/SlotMachine';
 import {
   ATTACHMENT_COST_FACES,
   LOADOUT_COST_FACES,
+  MAX_KEYS,
   MODES,
   MODE_BY_ID,
   SQUAD_BY_ID,
   STICK_BUNDLE,
   WHEEL_POCKETS,
+  keycardsFor,
 } from './data/deltaforce';
 import { SLOTS } from './data/slots';
 import type { Entry, FilterState, Roll } from './data/types';
@@ -17,11 +19,20 @@ import { defaultFilterState, resolvePools } from './engine/filters';
 import { usePersisted } from './engine/persist';
 import { PRESETS, applyPreset } from './engine/presets';
 import { randomSeedCode } from './engine/rng';
-import { emptySlots, rollAll, rollDie, rollPocket, rollSlot, rollStick } from './engine/roll';
+import {
+  emptySlots,
+  rollAll,
+  rollDie,
+  rollKeycard,
+  rollPocket,
+  rollSlot,
+  rollStick,
+} from './engine/roll';
 import { sfx } from './engine/sound';
 import { RouletteWheel, type RouletteHandle } from './three/RouletteWheel';
 import { DiceTray, type DiceHandle } from './three/DiceTray';
 import { StickCup, type StickHandle } from './three/StickCup';
+import { CardFan, type CardFanHandle } from './three/CardFan';
 
 /**
  * Base spin length for one reel. Reels run STRICTLY ONE AT A TIME, left to
@@ -94,6 +105,11 @@ export default function App() {
   const [dice, setDice] = useState<[number, number] | null>(null);
   const [diceBusy, setDiceBusy] = useState(false);
 
+  // --- keycards, drawn blind from the fan ----------------------------------
+  // Indices into the rolled map's deck, in the order they came out.
+  const [keys, setKeys] = useState<number[]>([]);
+  const [keyBusy, setKeyBusy] = useState(false);
+
   // --- squad size, drawn from the stick cup --------------------------------
   const [squad, setSquad] = useState<Entry | null>(null);
   const [stickBusy, setStickBusy] = useState(false);
@@ -102,6 +118,7 @@ export default function App() {
 
   const diceRef = useRef<DiceHandle>(null);
   const stickRef = useRef<StickHandle>(null);
+  const cardRef = useRef<CardFanHandle>(null);
   const wheelRef = useRef<RouletteHandle>(null);
   const coinSlotRef = useRef<HTMLDivElement>(null);
   /** Columns still waiting to spin, in order. Drained by onSpinEnd. */
@@ -392,6 +409,49 @@ export default function App() {
     setDiceBusy(false);
   }, [diceBusy, seed, spins]);
 
+  /* --- keycards ---------------------------------------------------------- */
+
+  // The deck is whatever the ROLLED map's locked rooms are, so there is nothing
+  // to draw from until stage two has landed a map.
+  const mapId = rolls.map?.entry?.id ?? null;
+  const deck = useMemo(() => keycardsFor(mapId), [mapId]);
+  const drawnKeys = useMemo(() => keys.map((i) => deck[i]).filter(Boolean), [deck, keys]);
+  // Five is the ceiling, but a map documented as running generic tiered access
+  // cards has a deck of three — you cannot draw more keys than exist.
+  const keyLimit = Math.min(MAX_KEYS, deck.length);
+
+  // A new map is a new set of doors, so the hand it was drawn against is void.
+  useEffect(() => {
+    setKeys([]);
+    cardRef.current?.reset();
+  }, [mapId]);
+
+  const drawKey = useCallback(async () => {
+    if (keyBusy || keys.length >= keyLimit) return;
+    setKeyBusy(true);
+    const n = (spins.__keys ?? 0) + 1;
+    setSpins((p) => ({ ...p, __keys: n }));
+
+    const index = rollKeycard(seed, n, deck.length, keys);
+    if (index < 0) {
+      setKeyBusy(false);
+      return;
+    }
+    // Slide and flip sounds come from the fan itself, on the beat the card
+    // actually moves, rather than being guessed at with timers out here.
+    await cardRef.current?.draw(keys.length, deck[index]);
+
+    setKeys((p) => [...p, index]);
+    setKeyBusy(false);
+  }, [deck, keyBusy, keyLimit, keys, seed, spins]);
+
+  const clearKeys = useCallback(() => {
+    if (keyBusy) return;
+    sfx.cardShuffle();
+    cardRef.current?.reset();
+    setKeys([]);
+  }, [keyBusy]);
+
   const drawStick = useCallback(async () => {
     if (stickBusy) return;
     setStickBusy(true);
@@ -583,6 +643,84 @@ export default function App() {
       </section>
 
       {/* --------------------------------------------------- stage four */}
+      <section className="stage stage--cards">
+        <div className="stage__wheel stage__wheel--cards">
+          <CardFan
+            ref={cardRef}
+            className="wheelcanvas"
+            onSlide={() => sfx.cardSlide()}
+            onFlip={() => sfx.cardFlip()}
+          />
+          <div className="wheelglow" aria-hidden="true" />
+        </div>
+
+        <div className="stage__side">
+          <SectionTitle>4 · Draw your keys</SectionTitle>
+
+          <div className="keys">
+            <div className="keys__head">
+              <span className="keys__label">Keys in hand</span>
+              <span className="keys__count">
+                {keys.length} / {keyLimit || MAX_KEYS}
+              </span>
+            </div>
+
+            {drawnKeys.length > 0 ? (
+              <ol className="keys__list">
+                {drawnKeys.map((name, i) => (
+                  <li key={`${name}-${i}`} className="keys__item">
+                    {name}
+                  </li>
+                ))}
+              </ol>
+            ) : (
+              <p className="keys__empty">
+                {mapId ? 'Nothing drawn yet' : 'Roll a map in stage 2 first'}
+              </p>
+            )}
+          </div>
+
+          <p className="stage__hint">
+            {mapId
+              ? 'Face-down, so you take the card before you know the door. Whatever comes out is what you go in for.'
+              : 'The deck is the locked rooms on the map you rolled — there is nothing to draw from until stage 2 lands one.'}
+          </p>
+
+          <div className="keys__actions">
+            <button
+              type="button"
+              className="btn btn--primary"
+              onClick={() => void drawKey()}
+              disabled={keyBusy || !mapId || keys.length >= keyLimit}
+              title={
+                !mapId
+                  ? 'Roll a map in stage 2 first'
+                  : keys.length >= keyLimit
+                    ? 'That is the whole hand'
+                    : 'Take a card off the fan'
+              }
+            >
+              {keyBusy
+                ? 'Drawing…'
+                : /* With no map the deck is empty, so keyLimit is 0 and a bare
+                     length>=limit test called an untouched hand "full". */
+                  mapId && keys.length >= keyLimit
+                  ? 'Hand full'
+                  : 'Draw a card'}
+            </button>
+            <button
+              type="button"
+              className="btn"
+              onClick={clearKeys}
+              disabled={keyBusy || keys.length === 0}
+            >
+              Put them back
+            </button>
+          </div>
+        </div>
+      </section>
+
+      {/* --------------------------------------------------- stage five */}
       <section className="stage stage--sticks">
         <div className="stage__wheel stage__wheel--sticks">
           <StickCup
@@ -595,7 +733,7 @@ export default function App() {
         </div>
 
         <div className="stage__side">
-          <SectionTitle>4 · Draw for squad size</SectionTitle>
+          <SectionTitle>5 · Draw for squad size</SectionTitle>
 
           <div className={`squad squad--${squad?.id ?? 'none'}`}>
             <span className="squad__bands" aria-hidden="true">

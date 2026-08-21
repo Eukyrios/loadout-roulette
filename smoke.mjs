@@ -85,10 +85,10 @@ await page.goto('http://localhost:4321/', { waitUntil: 'networkidle' });
 
 /* -------------------------------------------------------------- render */
 
-// Wheel, dice tray, stick cup.
+// Wheel, dice tray, keycard fan, stick cup.
 check(
-  'three canvases mounted',
-  (await page.locator('.wheelcanvas canvas').count()) === 3,
+  'four canvases mounted',
+  (await page.locator('.wheelcanvas canvas').count()) === 4,
   `${await page.locator('.wheelcanvas canvas').count()} found`,
 );
 const box = await page.locator('.stage__wheel').first().locator('canvas').boundingBox();
@@ -636,6 +636,58 @@ check('both dice show 1-6', pips.every((n) => n >= 1 && n <= 6), pips.join(','))
 const capValues = (await page.locator('.dieresult__value').allTextContents()).map((v) => v.trim());
 check('white die matches loadout cap', LOADOUT_FACES[pips[0] - 1] === capValues[0], `${pips[0]} -> ${capValues[0]}`);
 check('red die matches attachment cap', ATTACH_FACES[pips[1] - 1] === capValues[1], `${pips[1]} -> ${capValues[1]}`);
+
+/* ------------------------------------------------------------ keycards */
+
+/**
+ * The keycard fan sits between the dice and the sticks, and its deck IS the
+ * locked rooms on the map you rolled — so it is gated on stage two having
+ * landed one, and a hand is void the moment a different map comes up.
+ */
+{
+  const stages = await page.evaluate(() =>
+    [...document.querySelectorAll('.stage, .stage2')].map((s) =>
+      s.classList.contains('stage2')
+        ? 'stage2'
+        : [...s.classList].find((c) => c.startsWith('stage--')) ?? 'stage'));
+  check('keycards sit after the dice and before the sticks',
+    JSON.stringify(stages) === JSON.stringify(['stage', 'stage2', 'stage--dice', 'stage--cards', 'stage--sticks']),
+    JSON.stringify(stages));
+
+  // The gate needs a page where nothing has been rolled yet.
+  const fresh = await browser.newPage({ viewport: { width: 1320, height: 1700 } });
+  await fresh.goto('http://localhost:4321/', { waitUntil: 'networkidle' });
+  check('draw is locked until a map is rolled',
+    await fresh.getByRole('button', { name: /Draw a card/ }).isDisabled());
+  check('the empty state says why',
+    /Roll a map in stage 2 first/.test(await fresh.locator('.keys__empty').textContent()));
+  await fresh.close();
+
+  const mapName = (await page.locator('.reel__value').first().textContent()).trim();
+  const drawBtn = page.getByRole('button', { name: /Draw a card|Hand full|Drawing/ });
+  check('draw unlocks with a map on the reel', !(await drawBtn.isDisabled()), mapName);
+
+  const counter = async () => (await page.locator('.keys__count').textContent()).trim();
+  const limit = Number((await counter()).split('/')[1].trim());
+  // Tide Prison and AZ3 run generic tiered access cards, so their deck is
+  // three — the hand cannot exceed the deck it is drawn from.
+  check('hand limit is five, or the deck if it is smaller', limit >= 1 && limit <= 5, await counter());
+
+  for (let i = 0; i < limit; i++) {
+    await drawBtn.click();
+    await page.waitForFunction((n) => document.querySelectorAll('.keys__item').length === n, i + 1,
+      { timeout: 20000 });
+  }
+  const hand = (await page.locator('.keys__item').allTextContents()).map((t) => t.trim());
+  check('drew a full hand', hand.length === limit, JSON.stringify(hand));
+  check('no key drawn twice', new Set(hand).size === hand.length, JSON.stringify(hand));
+  check('every key names a real room', hand.every((k) => k.length > 3), JSON.stringify(hand));
+  check('cannot draw past the hand limit', await drawBtn.isDisabled(), await counter());
+
+  await page.getByRole('button', { name: 'Put them back' }).click();
+  await page.waitForTimeout(300);
+  check('putting them back empties the hand', (await page.locator('.keys__item').count()) === 0);
+}
 
 /* ------------------------------------------------------------- seeding */
 

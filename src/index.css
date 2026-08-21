@@ -1078,6 +1078,91 @@ body {
   color: var(--text-faint);
 }
 
+/* ------------------------------------------------------------ keycards */
+
+.stage--cards {
+  margin-bottom: 22px;
+  background:
+    radial-gradient(120% 90% at 50% 0%, rgba(var(--accent-rgb), 0.07), transparent 60%),
+    linear-gradient(180deg, #0d2320 0%, #06110f 100%);
+}
+
+.stage__wheel--cards {
+  min-height: 320px;
+}
+
+.keys {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.28);
+  padding: 10px 12px;
+}
+
+.keys__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.keys__label {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.keys__count {
+  font-family: var(--mono);
+  font-size: 13px;
+  color: var(--accent);
+}
+
+.keys__list {
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 4px;
+  /* Numbered by the counter rather than by <ol> markers, so the draw order
+     stays visible without the browser's own indent. */
+  counter-reset: key;
+}
+
+.keys__item {
+  counter-increment: key;
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  font-size: 13px;
+  color: var(--text);
+}
+
+.keys__item::before {
+  content: counter(key);
+  flex: 0 0 auto;
+  min-width: 15px;
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--accent);
+}
+
+.keys__empty {
+  margin: 8px 0 0;
+  font-size: 13px;
+  color: var(--text-faint);
+}
+
+.keys__actions {
+  display: flex;
+  gap: 8px;
+}
+
+.keys__actions .btn {
+  flex: 1 1 0;
+}
+
 /* ---------------------------------------------------------- stick draw */
 
 .stage--sticks {

@@ -310,6 +310,23 @@ export const sfx = {
     tone(660, 0.14, 0.04, 'triangle', 0.03);
   },
 
+  /* --- keycards --- */
+  /** A card sliding off the top of the fan: dry, brief, all friction. */
+  cardSlide: () => {
+    knock(3400, 0.09, 0.05, 2.2);
+    knock(1700, 0.06, 0.03, 3);
+  },
+  /** The snap of it landing face-up on the felt. */
+  cardFlip: () => {
+    knock(2600, 0.045, 0.09, 8);
+    tone(1240, 0.07, 0.03, 'triangle', 0.02);
+  },
+  /** The deck being gathered back up. */
+  cardShuffle: () => {
+    for (let i = 0; i < 7; i++) knock(2200 + Math.random() * 1800, 0.035, 0.035, 5);
+    knock(900, 0.09, 0.05, 3);
+  },
+
   /* --- stick draw --- */
   /** Bamboo clattering as the cup is worked. Higher and drier than the dice. */
   stickRattle: (strength = 1) => {

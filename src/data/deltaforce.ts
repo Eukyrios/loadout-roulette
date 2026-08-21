@@ -457,3 +457,104 @@ export const ATTACHMENT_COST_FACES: Entry[] = [
   { id: 'ac5', name: '350k', note: 'Full meta build', attrs: { value: 350_000 } },
   { id: 'ac6', name: 'No cap', note: 'Spend it all', attrs: { value: -1 } },
 ];
+
+/* -------------------------------------------------------------------------- */
+/*  Keycards                                                                   */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Locked rooms you can draw a key for, by map.
+ *
+ * These are the real keycard rooms, taken from the community wiki's keycard
+ * list, so a draw names somewhere you can actually go. Zero Dam's night raid
+ * runs the same building with the same locks, so it shares the day list rather
+ * than duplicating it.
+ *
+ * Tide Prison and AZ3 are the two exceptions: neither has a published
+ * room-by-room keycard list, and both are documented as running the tiered
+ * Level 1 / 2 / 3 access-card system instead, so that is what they draw from.
+ * Invented room names would look authoritative and send people hunting for
+ * doors that are not there.
+ */
+const ACCESS_TIERS = ['Level 1 Access Card', 'Level 2 Access Card', 'Level 3 Access Card'];
+
+export const KEYCARDS_BY_MAP: Record<string, string[]> = {
+  'zero-dam': [
+    'East Wing Manager’s Office',
+    'Substation Tech Room',
+    'West Wing Control Room',
+    'West Wing Monitoring Room',
+    'Equipment Collection Room',
+    'Barracks Storage Room',
+    'Ticket Office',
+    'Cement Plant — Dormitory 201',
+    'Central VIP Room',
+    'Cement Plant Office',
+    'West Wing Infirmary',
+    'Substation Dormitory',
+  ],
+  'layali-grove': [
+    'King’s Suite',
+    'Prince’s Suite',
+    'General’s Room',
+    'Spades Room',
+    'Diamonds Room',
+    'Radar Station UAV Platform',
+    'Radar Station Data Center',
+    'Radar Station Control Room',
+    'Radar Station Conference Room',
+    'Radar Station Side Entrance',
+    'Lab Building Archive Room',
+    'Lab Building Office',
+    'Cargo Plane Conference Room',
+    'Checkpoint Storeroom',
+    'Farm Admin Room',
+    'Small Train Station Ticket Office',
+    'Town Diner',
+  ],
+  brakkesh: [
+    'Underground Vault Storage',
+    'Museum Exhibition Suite',
+    'Museum Abandoned Exhibition Hall',
+    'Museum Surveillance Room',
+    'Old Bath VIP Room',
+    'Old Bath Diner',
+    'Hotel Dining Room',
+    'Hotel Staff Break Room',
+    'CEO Conference Room',
+    'Interrogation Room 1',
+    'Medical Conference Room',
+    'Relink Implant Surgery Room',
+    'Biological Data Server Room',
+    'New Tower of Babel Power Access',
+    'Ocean Monitoring Hall',
+    'Outpatient Room',
+    'East Town Residential Bedroom',
+    'West Town Residential Bedroom',
+  ],
+  'space-city': [
+    'CEO Office Reception Room',
+    'Black Chamber Server Room',
+    'Central Command Room 3F',
+    'Test Range Core',
+    'Test Range Data Center',
+    'Test Range Glass Room',
+    'Assembly Workshop 2F Lab',
+    'Buoyancy Lab Infirmary',
+    'Eastern Suspension Bridge',
+    'Employee Passage',
+    'No.3 Dormitory Back Room',
+    'West Gate',
+  ],
+  'tide-prison': ACCESS_TIERS,
+  az3: ACCESS_TIERS,
+};
+KEYCARDS_BY_MAP['zero-dam-night'] = KEYCARDS_BY_MAP['zero-dam'];
+
+/** How many keys you are allowed to take into a raid. */
+export const MAX_KEYS = 5;
+
+/** The keys drawable for a map, or an empty deck if no map is rolled yet. */
+export function keycardsFor(mapId: string | null | undefined): string[] {
+  return (mapId && KEYCARDS_BY_MAP[mapId]) || [];
+}
