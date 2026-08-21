@@ -108,7 +108,6 @@ export const SLOTS: SlotSpec[] = [
     group: 'gear',
     entries: RIGS,
     filters: [tierFilter()],
-    hint: 'Caps at Tier 5',
   },
   {
     id: 'backpack',
