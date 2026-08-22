@@ -364,4 +364,21 @@ export const sfx = {
     tone(880, 0.2, 0.04, 'triangle', 0.22);
     tone(1320, 0.26, 0.03, 'sine', 0.3);
   },
+
+  /* --- darts --- */
+  /** The throw: air, not impact. Short and downward. */
+  dartThrow: () => {
+    sweep(1600, 380, 0.16, 0.022, 'sine');
+    knock(2400, 0.05, 0.02, 9);
+  },
+  /** The point going into cork — a dull thud with a tiny metallic ring. */
+  dartHit: () => {
+    knock(240, 0.1, 0.14, 4);
+    knock(1300, 0.05, 0.05, 12);
+    tone(2100, 0.09, 0.02, 'triangle', 0.01);
+  },
+  /** The flight still quivering a moment after it lands. */
+  dartWobble: () => {
+    for (let i = 0; i < 4; i++) knock(3000 + Math.random() * 1200, 0.03, 0.012, 20);
+  },
 };

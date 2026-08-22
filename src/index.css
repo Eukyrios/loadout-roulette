@@ -1100,24 +1100,27 @@ body {
      1.45 times as wide as it is tall once projected, and a canvas much taller
      than that letterboxes the row into the middle with dead bands above and
      below. The idle machine is height-bound instead and fills it happily. */
-  min-height: 430px;
+  min-height: 372px;
 }
 
-.caps {
+.caps,
+.dart {
   border: 1px solid var(--line);
   border-radius: 10px;
   background: rgba(0, 0, 0, 0.28);
   padding: 10px 12px;
 }
 
-.caps__head {
+.caps__head,
+.dart__head {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
   gap: 10px;
 }
 
-.caps__label {
+.caps__label,
+.dart__label {
   font-family: var(--mono);
   font-size: 9px;
   letter-spacing: 0.14em;
@@ -1125,7 +1128,8 @@ body {
   color: var(--text-faint);
 }
 
-.caps__for {
+.caps__for,
+.dart__for {
   font-family: var(--mono);
   font-size: 12px;
   color: var(--accent);
@@ -1167,13 +1171,74 @@ body {
   color: var(--text-faint);
 }
 
-.caps__empty {
+.caps__empty,
+.dart__empty {
   margin: 8px 0 0;
   font-size: 13px;
   color: var(--text-faint);
 }
 
 /* ------------------------------------------------------------ keycards */
+
+/* ------------------------------------------------------------ dart board */
+
+.stage--darts {
+  margin-bottom: 22px;
+  background:
+    radial-gradient(120% 90% at 50% 0%, rgba(var(--accent-rgb), 0.07), transparent 60%),
+    linear-gradient(180deg, #1b1418 0%, #0b0709 100%);
+}
+
+/* Boarded up: no 3D panel, so the notice gets the whole width. */
+.stage--barred {
+  grid-template-columns: 1fr;
+}
+
+.wip--big {
+  padding: 14px 16px;
+  font-size: 12px;
+}
+
+.stage__wheel--darts {
+  /* The board is a circle, so the shot is as tall as it is wide. Anything
+     wider than this just pads the sides with felt. */
+  min-height: 400px;
+}
+
+/* The round that landed: picture on the left, name and figures on the right. */
+.ammo {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 12px;
+  align-items: center;
+  padding: 4px 0 2px;
+}
+
+.ammo__img {
+  width: 64px;
+  height: 64px;
+  object-fit: contain;
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.6));
+}
+
+.ammo__body {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.ammo__name {
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--text);
+}
+
+.ammo__meta {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text-faint);
+}
 
 .stage--cards {
   margin-bottom: 22px;
@@ -1243,6 +1308,63 @@ body {
   color: var(--accent);
 }
 
+/* The rarity ladder again, this time on the drawn list. Same six values as
+   the .reel--tN block above and as src/data/rarity.ts — change one, change
+   all three. The counter takes the colour, so the row is graded without the
+   name itself becoming hard to read. */
+.keys__item--t1 {
+  --tier: 154, 168, 178;
+}
+.keys__item--t2 {
+  --tier: 76, 175, 109;
+}
+.keys__item--t3 {
+  --tier: 74, 144, 217;
+}
+.keys__item--t4 {
+  --tier: 168, 106, 224;
+}
+.keys__item--t5 {
+  --tier: 224, 162, 58;
+}
+.keys__item--t6 {
+  --tier: 224, 80, 58;
+}
+
+[class*='keys__item--t']::before {
+  color: rgb(var(--tier));
+}
+
+[class*='keys__item--t'] {
+  padding-left: 6px;
+  border-left: 2px solid rgba(var(--tier), 0.7);
+}
+
+/* The round the dart landed on, graded the same way. */
+.ammo__meta--t1 {
+  --tier: 154, 168, 178;
+}
+.ammo__meta--t2 {
+  --tier: 76, 175, 109;
+}
+.ammo__meta--t3 {
+  --tier: 74, 144, 217;
+}
+.ammo__meta--t4 {
+  --tier: 168, 106, 224;
+}
+.ammo__meta--t5 {
+  --tier: 224, 162, 58;
+}
+.ammo__meta--t6 {
+  --tier: 224, 80, 58;
+}
+
+[class*='ammo__meta--t'] strong {
+  color: rgb(var(--tier));
+  font-weight: 700;
+}
+
 .keys__empty {
   margin: 8px 0 0;
   font-size: 13px;
@@ -1276,6 +1398,29 @@ body {
   font-size: 11px;
   line-height: 1.5;
   color: var(--text-faint);
+}
+
+/* An unfinished-feature notice. Amber rather than red: this is a caveat about
+   what the stage does, not an error the reader has to act on. */
+.wip {
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid rgba(224, 162, 58, 0.45);
+  border-left-width: 3px;
+  border-radius: 5px;
+  background: rgba(224, 162, 58, 0.08);
+  font-size: 11px;
+  line-height: 1.55;
+  color: var(--text-dim, #9fb0bd);
+}
+
+.wip__tag {
+  display: block;
+  margin-bottom: 3px;
+  color: #e0a23a;
+  font: 600 10px/1 ui-monospace, monospace;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
 }
 
 .squad {

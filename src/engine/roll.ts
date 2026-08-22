@@ -139,3 +139,15 @@ export function emptySlots(filters: FilterState, rolls: Record<string, Roll>): s
     (s) => s.label,
   );
 }
+
+/**
+ * Which round the dart lands on.
+ *
+ * Just an index into the weapon's own ammo list — the board is built from the
+ * gun's caliber, so a round it cannot chamber is never a possible outcome.
+ * Seeded like everything else, so a shared link throws the same dart.
+ */
+export function rollDart(seed: string, spin: number, count: number): number {
+  if (count <= 0) return -1;
+  return Math.floor(streamFor(seed, 'dart', spin)() * count) % count;
+}

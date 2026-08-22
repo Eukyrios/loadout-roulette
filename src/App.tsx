@@ -11,9 +11,18 @@ import {
   SQUAD_BY_ID,
   STICK_BUNDLE,
   WHEEL_POCKETS,
+  keycardTier,
   keycardsFor,
 } from './data/deltaforce';
 import { ATTACH_BY_CAT, ATTACH_SLOTS, type Attachment } from './data/attachments';
+import {
+  WEAPON_CALIBER,
+  OFF_WIKI_CALIBERS,
+  type Ammo,
+  ammoForWeapon,
+  ammoImageSources,
+} from './data/ammo';
+import { TIER_NAME, ammoTier } from './data/rarity';
 import { SLOTS } from './data/slots';
 import type { Entry, FilterState, Roll } from './data/types';
 import { defaultFilterState, resolvePools } from './engine/filters';
@@ -25,6 +34,7 @@ import {
   rollAll,
   rollDie,
   rollCapsule,
+  rollDart,
   rollKeycard,
   rollPocket,
   rollSlot,
@@ -36,6 +46,17 @@ import { DiceTray, type DiceHandle } from './three/DiceTray';
 import { StickCup, type StickHandle } from './three/StickCup';
 import { CardFan, type CardFanHandle } from './three/CardFan';
 import { CapsuleMachine, type CapsuleHandle } from './three/CapsuleMachine';
+import { DartBoard, type DartHandle } from './three/DartBoard';
+
+/**
+ * Is the dart board finished enough to show?
+ *
+ * No — the board does not centre reliably at every panel size and the round
+ * pictures load intermittently, so stage five is boarded up rather than
+ * shipped half working. Everything behind it still builds and still runs; flip
+ * this to true and the stage comes straight back, no other change needed.
+ */
+const DART_READY = false;
 
 /**
  * Base spin length for one reel. Reels run STRICTLY ONE AT A TIME, left to
@@ -117,6 +138,10 @@ export default function App() {
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [capsuleBusy, setCapsuleBusy] = useState(false);
 
+  // --- ammunition, picked by throwing a dart -------------------------------
+  const [ammo, setAmmo] = useState<Ammo | null>(null);
+  const [dartBusy, setDartBusy] = useState(false);
+
   // --- squad size, drawn from the stick cup --------------------------------
   const [squad, setSquad] = useState<Entry | null>(null);
   const [stickBusy, setStickBusy] = useState(false);
@@ -127,6 +152,7 @@ export default function App() {
   const stickRef = useRef<StickHandle>(null);
   const cardRef = useRef<CardFanHandle>(null);
   const capsuleRef = useRef<CapsuleHandle>(null);
+  const dartRef = useRef<DartHandle>(null);
   const wheelRef = useRef<RouletteHandle>(null);
   const coinSlotRef = useRef<HTMLDivElement>(null);
   /** Columns still waiting to spin, in order. Drained by onSpinEnd. */
@@ -492,6 +518,34 @@ export default function App() {
     setCapsuleBusy(false);
   }, [capsuleBusy, seed, spins, weapon]);
 
+  /* --- the dart board ------------------------------------------------------ */
+
+  /** The rolled gun's caliber, and every round it can chamber. */
+  const caliber = weapon ? (WEAPON_CALIBER[weapon.id] ?? null) : null;
+  const rounds = useMemo(() => (weapon ? ammoForWeapon(weapon.id) : []), [weapon]);
+
+  // A new gun means a new board, and the old dart comes out with it.
+  useEffect(() => {
+    setAmmo(null);
+    dartRef.current?.setBoard(rounds, caliber);
+  }, [weapon?.id, rounds, caliber]);
+
+  const throwDart = useCallback(async () => {
+    if (dartBusy || rounds.length === 0) return;
+    setDartBusy(true);
+    const n = (spins.__dart ?? 0) + 1;
+    setSpins((p) => ({ ...p, __dart: n }));
+
+    const idx = rollDart(seed, n, rounds.length);
+    // The board is rebuilt first: a re-throw at a gun whose board is already
+    // up is a no-op, but coming here straight from a re-roll is not.
+    dartRef.current?.setBoard(rounds, caliber);
+    await dartRef.current?.throwAt(rounds, idx);
+
+    setAmmo(rounds[idx] ?? null);
+    setDartBusy(false);
+  }, [dartBusy, rounds, caliber, seed, spins]);
+
   const drawStick = useCallback(async () => {
     if (stickBusy) return;
     setStickBusy(true);
@@ -722,10 +776,12 @@ export default function App() {
             )}
           </div>
 
-          <p className="stage__hint">
-            The machine does not care what you rolled. Nobody publishes which
-            attachments fit which gun, so rather than invent a compatibility table
-            it hands you five slots at random — expect an M249 handguard for your MP5.
+          <p className="wip">
+            <strong className="wip__tag">Work in progress</strong>
+            Attachment compatibility is not working yet — the machine does not check
+            what you rolled. Nobody publishes which attachments fit which gun, so for
+            now it hands you five slots at random and you may well get an M249
+            handguard for your MP5. Everything else on this stage is finished.
           </p>
 
           <button
@@ -741,6 +797,120 @@ export default function App() {
       </section>
 
       {/* --------------------------------------------------- stage five */}
+      {DART_READY ? (
+        <section className="stage stage--darts">
+          <div className="stage__wheel stage__wheel--darts">
+            <DartBoard
+              ref={dartRef}
+              className="wheelcanvas"
+              onThrow={() => sfx.dartThrow()}
+              onHit={() => sfx.dartHit()}
+              onWobble={() => sfx.dartWobble()}
+            />
+            <div className="wheelglow" aria-hidden="true" />
+          </div>
+
+          <div className="stage__side">
+            <SectionTitle>5 · Throw for ammunition</SectionTitle>
+
+            <div className="dart">
+              <div className="dart__head">
+                <span className="dart__label">{caliber ?? 'Caliber'}</span>
+                <span className="dart__for">{weapon ? weapon.name : 'No weapon'}</span>
+              </div>
+
+              {ammo ? (
+                <div className="ammo">
+                  {ammoImageSources(ammo).length > 0 ? (
+                    <img
+                      className="ammo__img"
+                      src={ammoImageSources(ammo)[0]}
+                      alt=""
+                      referrerPolicy="no-referrer"
+                      onError={(e) => {
+                        // Same three-source walk the attachment cards do: mirror,
+                        // then the CDN, then the site's own image optimiser.
+                        const el = e.currentTarget;
+                        const list = ammoImageSources(ammo);
+                        const at = Number(el.dataset.at ?? 0) + 1;
+                        if (at < list.length) {
+                          el.dataset.at = String(at);
+                          el.src = list[at];
+                        } else el.style.display = 'none';
+                      }}
+                    />
+                  ) : null}
+                  <div className="ammo__body">
+                    <span className="ammo__name">{ammo.name}</span>
+                    <span className={`ammo__meta ammo__meta--t${ammoTier(ammo.pen, ammo.id)}`}>
+                      <strong>{TIER_NAME[ammoTier(ammo.pen, ammo.id)]}</strong>
+                      {ammo.pen === null ? ' · penetration unknown' : ` · penetration ${ammo.pen}`}
+                      {ammo.price !== null ? ` · ${ammo.price.toLocaleString('en-US')}` : ''}
+                    </span>
+                  </div>
+                </div>
+              ) : (
+                <p className="dart__empty">
+                  {!weapon
+                    ? 'Roll a weapon in stage 2 first'
+                    : rounds.length === 0
+                      ? 'This weapon fires no cartridge'
+                      : 'Nothing thrown yet'}
+                </p>
+              )}
+            </div>
+
+            <p className="stage__hint">
+              {rounds.length > 0
+                ? `The board is built from the ${caliber} the ${weapon?.name} chambers, so every wedge on it is a round that gun can actually take.`
+                : weapon
+                  ? `The ${weapon.name} has no cartridge to throw for — it shoots arrows.`
+                  : 'The board is built from your gun\u2019s caliber, so it needs one rolled first.'}
+            </p>
+
+            {caliber && OFF_WIKI_CALIBERS.has(caliber) ? (
+              <p className="wip">
+                <strong className="wip__tag">Partial data</strong>
+                Delta Force Tools has no page for {caliber}, so these round names came
+                from elsewhere and there is no published price or picture for them. The
+                names and penetration levels are right; the board just has less to show.
+              </p>
+            ) : null}
+
+            <button
+              type="button"
+              className="btn btn--primary"
+              onClick={() => void throwDart()}
+              disabled={dartBusy || rounds.length === 0}
+              title={
+                rounds.length > 0
+                  ? 'Throw a dart at the board'
+                  : weapon
+                    ? 'This weapon fires no cartridge'
+                    : 'Roll a weapon in stage 2 first'
+              }
+            >
+              {dartBusy ? 'In the air…' : 'Throw the dart'}
+            </button>
+          </div>
+        </section>
+      ) : (
+        <section className="stage stage--darts stage--barred">
+          <div className="stage__side">
+            <SectionTitle>5 · Throw for ammunition</SectionTitle>
+            <p className="wip wip--big">
+              <strong className="wip__tag">Under construction</strong>
+              The dart board that picks your ammunition is boarded up for now. The
+              board does not sit right in its panel at every window size, and the
+              round pictures will not load reliably, so rather than leave a stage
+              that half works it is switched off until both are fixed. Nothing else
+              on the page is affected.
+            </p>
+          </div>
+        </section>
+      )}
+
+      {/* ---------------------------------------------------- stage six */}
       <section className="stage stage--cards">
         <div className="stage__wheel stage__wheel--cards">
           <CardFan
@@ -754,7 +924,7 @@ export default function App() {
         </div>
 
         <div className="stage__side">
-          <SectionTitle>5 · Draw your keycards</SectionTitle>
+          <SectionTitle>6 · Draw your keycards</SectionTitle>
 
           <div className="keys">
             <div className="keys__head">
@@ -766,11 +936,18 @@ export default function App() {
 
             {drawnKeys.length > 0 ? (
               <ol className="keys__list">
-                {drawnKeys.map((name, i) => (
-                  <li key={`${name}-${i}`} className="keys__item">
-                    {name}
-                  </li>
-                ))}
+                {drawnKeys.map((name, i) => {
+                  const tier = keycardTier(name);
+                  return (
+                    <li
+                      key={`${name}-${i}`}
+                      className={`keys__item${tier ? ` keys__item--t${tier}` : ''}`}
+                      title={tier ? TIER_NAME[tier] : 'Grade not published'}
+                    >
+                      {name}
+                    </li>
+                  );
+                })}
               </ol>
             ) : (
               <p className="keys__empty">
@@ -819,7 +996,7 @@ export default function App() {
         </div>
       </section>
 
-      {/* ---------------------------------------------------- stage six */}
+      {/* -------------------------------------------------- stage seven */}
       <section className="stage stage--sticks">
         <div className="stage__wheel stage__wheel--sticks">
           <StickCup
@@ -832,7 +1009,7 @@ export default function App() {
         </div>
 
         <div className="stage__side">
-          <SectionTitle>6 · Draw for squad size</SectionTitle>
+          <SectionTitle>7 · Draw for squad size</SectionTitle>
 
           <div className={`squad squad--${squad?.id ?? 'none'}`}>
             <span className="squad__bands" aria-hidden="true">

@@ -929,9 +929,10 @@ check('red die matches attachment cap', ATTACH_FACES[pips[1] - 1] === capValues[
       s.classList.contains('stage2')
         ? 'stage2'
         : [...s.classList].find((c) => c.startsWith('stage--')) ?? 'stage'));
-  check('the six stages run in order',
+  check('the seven stages run in order',
     JSON.stringify(stages) === JSON.stringify(
-      ['stage', 'stage2', 'stage--dice', 'stage--capsule', 'stage--cards', 'stage--sticks']),
+      ['stage', 'stage2', 'stage--dice', 'stage--capsule', 'stage--darts', 'stage--cards',
+       'stage--sticks']),
     JSON.stringify(stages));
 
   // The gate needs a page where nothing has been rolled yet.
