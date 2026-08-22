@@ -5,13 +5,13 @@
  * rises to the middle of the frame and unclips at its seam in a burst of
  * sparks. Its contents then fly out and settle in a row facing you.
  *
- * ITEM PICTURES need the local mirror. A card is a textured plane, and a
- * cross-origin image can only become a WebGL texture if the host sends CORS
- * headers — which theirs does not promise. So the texture is built from
- * public/att/, and the CDN is only tried as a long shot. Run
- * `node tools/fetch-images.mjs` once and every card gets its picture; until
- * then they render as clean cards with no art, which is the designed
- * fallback rather than a fault.
+ * ITEM PICTURES are real <img> elements tracked onto the cards, not part of
+ * the texture. A cross-origin image can only become a WebGL texture if the
+ * host sends CORS headers, which theirs does not promise — so the picture
+ * would silently never appear. An <img> has no such requirement. Each one is
+ * positioned every frame from its card's projected position, and faded in as
+ * the card squares up, by which point the card is flat to the camera and a
+ * flat overlay sits on it exactly.
  *
  * The capsule ignores what gun you rolled. No source publishes which
  * attachments fit which weapon — the wiki does not carry it and the build
@@ -76,13 +76,37 @@ const T_TOTAL = T_SHAKE + T_DROP + T_SETTLE + T_RISE + T_OPEN + T_FLY;
 
 const CAM_TILT = (46 * Math.PI) / 180;
 /** The revealed row, in the strip under the machine. */
-const CARD_W = 1.95;
-const CARD_H = 2.6;
-const CARD_GAP = 2.08;
+const CARD_W = 1.7;
+const CARD_H = 3.4;
+/* Just wider than a card. They must not overlap: they fan toward the camera,
+   so an overlapping neighbour covers the outer cards' names. */
+const CARD_GAP = 1.78;
 /** Mid-frame, roughly where the capsule split — the row rises INTO the shot
  *  rather than dropping out of it. */
-const CARD_Y = 2.75;
+const CARD_Y = 4.55;
 const CARD_Z = 3.7;
+
+/**
+ * The floor of the close-up frame: the machine's base, and no lower.
+ *
+ * Measured, not guessed. The row is five cards wide, so this shot is
+ * WIDTH-bound — the camera distance comes from the row, and the box's height
+ * only decides where the content sits vertically. Padding the box downward
+ * therefore does not close in on anything; it just slides the machine up the
+ * canvas and opens a band of nothing beneath it. Whatever else changes here,
+ * this stays pinned to the base.
+ */
+const CLOSE_FLOOR = -0.2;
+
+/**
+ * How far the close-up frame is padded below that floor.
+ *
+ * Width-bound means the content is letterboxed vertically, and padding the box
+ * downward moves its centre down, which slides the row up the canvas. It is
+ * kept small on purpose: every unit of it also opens empty space under the
+ * machine, and a hole under the machine is worse than a row an inch lower.
+ */
+const CLOSE_PAD = 0.9;
 
 /** Hard ceiling on the row: five is what a capsule holds and what fits. */
 const MAX_CARDS = 5;
@@ -129,10 +153,107 @@ function hops(u: number, count = 4, rest = 0.36): { h: number; arc: number } {
  * The same cream-and-green treatment as the keycards — one design for every
  * slot. Colour-coding by slot turned the row into a paint chart.
  */
-function cardTexture(a: Attachment, icon: HTMLImageElement | null): THREE.CanvasTexture {
+/**
+ * The card face, in texture pixels.
+ *
+ * Kept in the card's own aspect so nothing is stretched: the plane is
+ * CARD_W x CARD_H, and the canvas drawn onto it matches. Every position below
+ * is in these units, and the <img> overlay converts out of them.
+ */
+const TEX_W = 300;
+const TEX_H = Math.round((TEX_W * CARD_H) / CARD_W);
+/** Where the picture sits on that face. */
+const ART = { x: 24, y: 80, w: 252, h: 252 };
+
+/**
+ * A rough silhouette of the slot, drawn on the art plate.
+ *
+ * This is what you see when the picture cannot be loaded — the mirror has not
+ * been made and the CDN refused the hotlink. It is deliberately crude: enough
+ * to tell a muzzle from a magazine at a glance, not a substitute for the art.
+ * Drawn in a unit box from -0.5..0.5 and scaled, so one set of coordinates
+ * works at any card size.
+ */
+function slotGlyph(g: CanvasRenderingContext2D, cat: string, cx: number, cy: number, s: number) {
+  const box = (x: number, y: number, w: number, h: number) =>
+    g.fillRect(cx + x * s, cy + y * s, w * s, h * s);
+  g.save();
+  g.fillStyle = 'rgba(255,255,255,0.20)';
+  switch (cat) {
+    case 'muzzle': // a can on the end of a thread
+      box(-0.5, -0.16, 0.62, 0.32);
+      box(0.12, -0.08, 0.3, 0.16);
+      break;
+    case 'barrel': // a long tube stepping down
+      box(-0.5, -0.1, 0.7, 0.2);
+      box(0.2, -0.15, 0.3, 0.3);
+      break;
+    case 'handguard': // a slotted rail
+      box(-0.5, -0.14, 1, 0.28);
+      g.fillStyle = 'rgba(0,0,0,0.45)';
+      for (let i = 0; i < 5; i++) box(-0.42 + i * 0.19, -0.06, 0.1, 0.12);
+      break;
+    case 'foregrip': // a stub hanging off a rail
+      box(-0.42, -0.28, 0.84, 0.14);
+      box(-0.1, -0.14, 0.2, 0.46);
+      break;
+    case 'rear grip': // a canted pistol grip
+      g.beginPath();
+      g.moveTo(cx - 0.18 * s, cy - 0.4 * s);
+      g.lineTo(cx + 0.2 * s, cy - 0.4 * s);
+      g.lineTo(cx + 0.34 * s, cy + 0.4 * s);
+      g.lineTo(cx + 0.02 * s, cy + 0.4 * s);
+      g.closePath();
+      g.fill();
+      break;
+    case 'stock': // a shoulder pad on an arm
+      box(-0.5, -0.1, 0.6, 0.2);
+      box(0.1, -0.36, 0.22, 0.72);
+      break;
+    case 'mag': // a curved box
+      box(-0.24, -0.42, 0.48, 0.16);
+      g.beginPath();
+      g.moveTo(cx - 0.22 * s, cy - 0.26 * s);
+      g.lineTo(cx + 0.22 * s, cy - 0.26 * s);
+      g.quadraticCurveTo(cx + 0.34 * s, cy + 0.2 * s, cx + 0.16 * s, cy + 0.44 * s);
+      g.lineTo(cx - 0.26 * s, cy + 0.44 * s);
+      g.quadraticCurveTo(cx - 0.3 * s, cy + 0.1 * s, cx - 0.22 * s, cy - 0.26 * s);
+      g.closePath();
+      g.fill();
+      break;
+    case 'optic': { // a scope with a reticle
+      box(-0.5, -0.1, 1, 0.2);
+      g.beginPath();
+      g.arc(cx, cy, 0.3 * s, 0, Math.PI * 2);
+      g.fill();
+      g.strokeStyle = 'rgba(0,0,0,0.5)';
+      g.lineWidth = Math.max(1, s * 0.04);
+      g.beginPath();
+      g.moveTo(cx - 0.22 * s, cy);
+      g.lineTo(cx + 0.22 * s, cy);
+      g.moveTo(cx, cy - 0.22 * s);
+      g.lineTo(cx, cy + 0.22 * s);
+      g.stroke();
+      break;
+    }
+    default: { // functional — a lamp throwing a cone
+      box(-0.4, -0.18, 0.34, 0.36);
+      g.beginPath();
+      g.moveTo(cx - 0.06 * s, cy - 0.18 * s);
+      g.lineTo(cx + 0.44 * s, cy - 0.4 * s);
+      g.lineTo(cx + 0.44 * s, cy + 0.4 * s);
+      g.lineTo(cx - 0.06 * s, cy + 0.18 * s);
+      g.closePath();
+      g.fill();
+    }
+  }
+  g.restore();
+}
+
+function cardTexture(a: Attachment): THREE.CanvasTexture {
   const c = document.createElement('canvas');
-  c.width = 300;
-  c.height = 400;
+  c.width = TEX_W;
+  c.height = TEX_H;
   const g = c.getContext('2d')!;
 
   // Dark panel, green slot label, picture, name, price. One design for every
@@ -150,28 +271,14 @@ function cardTexture(a: Attachment, icon: HTMLImageElement | null): THREE.Canvas
   g.font = 'bold 19px ui-monospace, monospace';
   g.textAlign = 'center';
   g.textBaseline = 'middle';
-  g.fillText(a.cat.toUpperCase(), c.width / 2, 34);
+  g.fillText(a.cat.toUpperCase(), c.width / 2, 42);
 
-  // Letterboxed, so tall scopes and long barrels keep their proportions.
-  if (icon && icon.width) {
-    const box = { x: 26, y: 58, w: c.width - 52, h: 176 };
-    const k = Math.min(box.w / icon.width, box.h / icon.height);
-    const w = icon.width * k;
-    const h = icon.height * k;
-    g.save();
-    g.shadowColor = 'rgba(0,0,0,0.65)';
-    g.shadowBlur = 10;
-    g.shadowOffsetY = 3;
-    g.drawImage(icon, box.x + (box.w - w) / 2, box.y + (box.h - h) / 2, w, h);
-    g.restore();
-  } else {
-    // No mirrored picture yet — a quiet plate rather than an empty hole.
-    g.fillStyle = 'rgba(255,255,255,0.04)';
-    g.fillRect(26, 58, c.width - 52, 176);
-    g.fillStyle = 'rgba(15,247,150,0.22)';
-    g.font = 'bold 44px ui-monospace, monospace';
-    g.fillText(a.cat.slice(0, 3).toUpperCase(), c.width / 2, 148);
-  }
+  // The picture is an <img> laid over this area, so the texture draws the
+  // plate it sits on — and a glyph on that plate, so a card whose picture
+  // never arrives still reads as an item rather than as a blank hole.
+  g.fillStyle = 'rgba(255,255,255,0.04)';
+  g.fillRect(ART.x, ART.y, ART.w, ART.h);
+  slotGlyph(g, a.cat, ART.x + ART.w / 2, ART.y + ART.h / 2, ART.h * 0.62);
 
   const size = a.name.length > 30 ? 21 : a.name.length > 20 ? 24 : 27;
   g.font = `600 ${size}px system-ui, sans-serif`;
@@ -188,42 +295,16 @@ function cardTexture(a: Attachment, icon: HTMLImageElement | null): THREE.Canvas
   }
   if (line) lines.push(line);
   const lh = size * 1.2;
-  lines.slice(0, 3).forEach((l, i) => g.fillText(l, c.width / 2, 274 + i * lh));
+  lines.slice(0, 3).forEach((l, i) => g.fillText(l, c.width / 2, 404 + i * lh));
 
   g.fillStyle = '#5e7381';
   g.font = '600 20px ui-monospace, monospace';
-  g.fillText(a.price.toLocaleString('en-US'), c.width / 2, c.height - 30);
+  g.fillText(a.price.toLocaleString('en-US'), c.width / 2, c.height - 34);
 
   const t = new THREE.CanvasTexture(c);
   t.colorSpace = THREE.SRGBColorSpace;
   t.anisotropy = 4;
   return t;
-}
-
-/**
- * The item's picture: the local mirror first, the CDN as a long shot.
- *
- * `crossOrigin` is set on both because the result is drawn into a canvas that
- * becomes a WebGL texture — without it a cross-origin image taints the canvas
- * and the upload throws rather than merely looking wrong. Either failing
- * resolves to null and the card renders without art.
- */
-function loadIcon(sources: string[]): Promise<HTMLImageElement | null> {
-  return new Promise((resolve) => {
-    let i = 0;
-    const attempt = () => {
-      if (i >= sources.length) return resolve(null);
-      const img = new Image();
-      img.crossOrigin = 'anonymous';
-      img.onload = () => resolve(img);
-      img.onerror = () => {
-        i++;
-        attempt();
-      };
-      img.src = sources[i];
-    };
-    attempt();
-  });
 }
 
 /* --------------------------------------------------------------- component */
@@ -548,26 +629,33 @@ export const CapsuleMachine = forwardRef<CapsuleHandle, Props>(function CapsuleM
     const stockHome = stock.map((m) => m.position.clone());
 
     /* ------------------------------------------------------------- cards */
+    /**
+     * A layer of real <img> elements sitting over the canvas, one per card.
+     *
+     * This is the only way the actual item art can appear: it is cross-origin,
+     * and a cross-origin image is only usable as a WebGL texture when the host
+     * sends CORS headers. Each one is tracked onto its card's projected
+     * position every frame, so it moves, scales and fades with the card even
+     * though it is not part of the scene.
+     */
+    const art = document.createElement('div');
+    art.style.cssText = 'position:absolute;inset:0;overflow:hidden;pointer-events:none';
+    mount.appendChild(art);
+
     const cardGeo = keep(new THREE.PlaneGeometry(CARD_W, CARD_H));
     interface Card {
       mesh: THREE.Mesh;
       tex: THREE.CanvasTexture;
       mat: THREE.MeshBasicMaterial;
+      img: HTMLImageElement;
     }
     let cards: Card[] = [];
-    /**
-     * Which dispense the cards belong to. Pictures load asynchronously, so a
-     * pull adds its cards after it started; without a ticket a second pull
-     * cleared an empty table while the first was still loading and both sets
-     * landed, stacking five at a time.
-     */
-    let run = 0;
-
     const clearCards = () => {
       for (const c of cards) {
         scene.remove(c.mesh);
         c.tex.dispose();
         c.mat.dispose();
+        c.img.remove();
       }
       cards = [];
     };
@@ -591,22 +679,43 @@ export const CapsuleMachine = forwardRef<CapsuleHandle, Props>(function CapsuleM
         new Promise<void>((resolve) => {
           const items = all.slice(0, MAX_CARDS);
           clearCards();
-          const ticket = ++run;
-          void Promise.all(items.map((a) => loadIcon(attachImageSources(a)))).then((icons) => {
-            // Superseded while the pictures loaded: drop the batch rather than
-            // adding it to whatever is on the table now.
-            if (ticket !== run) return;
-            items.forEach((a, i) => {
-              if (cards.length >= MAX_CARDS) return;
-              const tex = cardTexture(a, icons[i]);
-              const mat = new THREE.MeshBasicMaterial({ map: tex, transparent: true });
-              const mesh = new THREE.Mesh(cardGeo, mat);
-              // Folded away inside the capsule until it splits.
-              mesh.scale.setScalar(0.001);
-              mesh.position.set(0, OPEN_Y, OPEN_Z);
-              scene.add(mesh);
-              cards.push({ mesh, tex, mat });
-            });
+          items.forEach((a) => {
+            const tex = cardTexture(a);
+            const mat = new THREE.MeshBasicMaterial({ map: tex, transparent: true });
+            const mesh = new THREE.Mesh(cardGeo, mat);
+            // Folded away inside the capsule until it splits.
+            mesh.scale.setScalar(0.001);
+            mesh.position.set(0, OPEN_Y, OPEN_Z);
+            scene.add(mesh);
+
+            const sources = attachImageSources(a);
+            const img = new Image();
+            img.decoding = 'async';
+            img.alt = '';
+            img.style.cssText =
+              'position:absolute;opacity:0;object-fit:contain;' +
+              'filter:drop-shadow(0 2px 6px rgba(0,0,0,.6));will-change:transform,opacity';
+            // No crossOrigin: nothing here is read back into a canvas, so
+            // asking for CORS would only give the host a way to refuse. No
+            // Referer either — sending one is what hotlink protection keys on,
+            // and this needs nothing from the host but the bytes.
+            img.referrerPolicy = 'no-referrer';
+            // Walk the source list until one loads. When they all fail the
+            // element is hidden and the slot glyph drawn into the card texture
+            // is what shows through.
+            let next = 0;
+            const advance = () => {
+              if (next >= sources.length) {
+                img.style.display = 'none';
+                return;
+              }
+              img.src = sources[next++];
+            };
+            img.onerror = advance;
+            advance();
+            art.appendChild(img);
+
+            cards.push({ mesh, tex, mat, img });
           });
 
           // A different shell every time, so two pulls in a row do not look
@@ -634,7 +743,6 @@ export const CapsuleMachine = forwardRef<CapsuleHandle, Props>(function CapsuleM
 
       reset: () => {
         t = -1;
-        run++; // invalidate anything still loading
         clearCards();
         resolveRun?.();
         resolveRun = null;
@@ -675,8 +783,8 @@ export const CapsuleMachine = forwardRef<CapsuleHandle, Props>(function CapsuleM
        * empty felt underneath, which is exactly what it should not do.
        */
       const close = {
-        min: new THREE.Vector3(-halfRow, -0.2, -0.8),
-        max: new THREE.Vector3(halfRow, CARD_Y + CARD_H / 2 + 0.5, CARD_Z + 1.1),
+        min: new THREE.Vector3(-halfRow, CLOSE_FLOOR - CLOSE_PAD, -0.8),
+        max: new THREE.Vector3(halfRow, CARD_Y + CARD_H / 2 + 0.15, CARD_Z + 1.1),
       };
       const e = smooth(focus);
       frameCamera(
@@ -685,6 +793,9 @@ export const CapsuleMachine = forwardRef<CapsuleHandle, Props>(function CapsuleM
         { tilt: CAM_TILT, width: viewW, height: viewH, margin: 1.04 },
       );
     };
+
+    const projA = new THREE.Vector3();
+    const projB = new THREE.Vector3();
 
     let dirty = true;
     const running = () => (t >= 0 && t < T_TOTAL) || sparkLife > 0;
@@ -838,6 +949,43 @@ export const CapsuleMachine = forwardRef<CapsuleHandle, Props>(function CapsuleM
         for (const c of cards) c.mesh.lookAt(camera.position);
       }
 
+      /**
+       * Track each picture onto its card.
+       *
+       * Projected rather than parented: the card is a plane in the scene and
+       * the picture is an element on the page, so the only thing connecting
+       * them is where the card's face lands on screen this frame. Two points
+       * are projected — the face centre and its top edge — which gives both
+       * position and scale without assuming anything about the camera.
+       */
+      if (cards.length) {
+        const reveal = clamp01((t - (T_TOTAL - T_FLY * 0.55)) / (T_FLY * 0.55));
+        for (const c of cards) {
+          const img = c.img;
+          if (img.style.display === 'none' || !img.naturalWidth) continue;
+          const s0 = projA.set(0, 0, 0).applyMatrix4(c.mesh.matrixWorld).project(camera);
+          const s1 = projB.set(0, CARD_H / 2, 0).applyMatrix4(c.mesh.matrixWorld).project(camera);
+          const cx = (s0.x * 0.5 + 0.5) * viewW;
+          const cy = (-s0.y * 0.5 + 0.5) * viewH;
+          const halfPx = Math.abs((-s1.y * 0.5 + 0.5) * viewH - cy);
+          if (!Number.isFinite(halfPx) || halfPx < 1) continue;
+
+          // The art plate occupies a fixed band of the card face; convert
+          // that band to pixels and sit the picture in the middle of it.
+          const pxPerFaceY = (halfPx * 2) / TEX_H;
+          const boxH = ART.h * pxPerFaceY;
+          const boxW = ART.w * pxPerFaceY * (CARD_W / CARD_H) * (TEX_H / TEX_W);
+          const midY = cy + ((ART.y + ART.h / 2) / TEX_H - 0.5) * halfPx * 2;
+          img.style.width = `${boxW}px`;
+          img.style.height = `${boxH}px`;
+          img.style.left = `${cx - boxW / 2}px`;
+          img.style.top = `${midY - boxH / 2}px`;
+          // Held back until the card has nearly finished turning — a flat
+          // overlay on a card still edge-on would slide about on top of it.
+          img.style.opacity = String(reveal);
+        }
+      }
+
       // Sparks fall away under their own gravity and fade out.
       if (sparkLife > 0) {
         sparkLife = Math.max(0, sparkLife - step / 0.9);
@@ -896,6 +1044,7 @@ export const CapsuleMachine = forwardRef<CapsuleHandle, Props>(function CapsuleM
       loop.stop();
       ro.disconnect();
       clearCards();
+      art.remove();
       trash.forEach((x) => x.dispose());
       renderer.dispose();
       if (renderer.domElement.parentNode === mount) mount.removeChild(renderer.domElement);

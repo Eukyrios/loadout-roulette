@@ -5913,8 +5913,24 @@ export const ATTACH_BY_CAT: Record<string, Attachment[]> = ATTACHMENTS.reduce(
 /**
  * Where to look for an attachment's picture, best first.
  *
- * The mirrored copy is same-origin so it always works as a texture; the CDN is
- * tried only if that 404s, and may itself fail on CORS — in which case the card
- * falls back to type alone.
+ * Three sources, because two of them can fail for reasons outside this repo:
+ *
+ * 1. `att/<id>.png` — the mirror in public/, filled by tools/fetch-images.mjs
+ *    (or the "Mirror attachment icons" workflow). Same-origin, so nothing can
+ *    refuse it. This is the only source that is guaranteed to work.
+ * 2. The raw CDN file. Reachable when fetched with no `Referer`, which is why
+ *    it looks fine when you paste it into a tab — but a host is free to refuse
+ *    a hotlink from another origin, so the <img> sets referrerPolicy
+ *    'no-referrer' to give it nothing to refuse on.
+ * 3. The site's own Next.js image optimiser, which is the URL their pages
+ *    actually request. If the raw file is hotlink-protected this one usually
+ *    is not, since it is served from the same host as the page.
+ *
+ * If all three fail the card still reads correctly: the texture draws a slot
+ * glyph under the picture, so an empty plate is never what you see.
  */
-export const attachImageSources = (a: Attachment) => [`att/${a.id}.png`, a.img];
+export const attachImageSources = (a: Attachment) => [
+  `att/${a.id}.png`,
+  a.img,
+  `https://deltaforcetools.gg/_next/image?url=${encodeURIComponent(a.img)}&w=384&q=75`,
+];
