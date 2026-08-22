@@ -551,6 +551,91 @@ export const KEYCARDS_BY_MAP: Record<string, string[]> = {
 };
 KEYCARDS_BY_MAP['zero-dam-night'] = KEYCARDS_BY_MAP['zero-dam'];
 
+/**
+ * Keycard rarity, on the same 1-6 ladder as every other item.
+ *
+ * Sourced from deltaforceitems.com, which publishes a Grade field per key;
+ * deltaforcetools.gg has no key pages at all. Keyed by room name because the
+ * names are unique across maps.
+ *
+ * Two entries are spelled differently there than here and are mapped by hand:
+ * "New Tower of Babel Power Access" is their "New Tower of Babel Power Supply
+ * Access Card", and "Ocean Monitoring Hall" is their "Ocean Surveillance
+ * Room". The Tide Prison and AZ3 access cards are not graded anywhere, so they
+ * are absent and the card is drawn ungraded rather than given a made-up tier.
+ */
+export const KEYCARD_TIER: Record<string, number> = {
+  // Zero Dam
+  'East Wing Manager\u2019s Office': 6,
+  'Substation Tech Room': 6,
+  'West Wing Control Room': 5,
+  'West Wing Monitoring Room': 5,
+  'Equipment Collection Room': 5,
+  'Barracks Storage Room': 4,
+  'Ticket Office': 4,
+  'Cement Plant \u2014 Dormitory 201': 4,
+  'Central VIP Room': 4,
+  'Cement Plant Office': 4,
+  'West Wing Infirmary': 3,
+  'Substation Dormitory': 3,
+
+  // Layali Grove
+  'King\u2019s Suite': 6,
+  'Radar Station UAV Platform': 6,
+  'Prince\u2019s Suite': 5,
+  'General\u2019s Room': 5,
+  'Spades Room': 5,
+  'Diamonds Room': 5,
+  'Radar Station Data Center': 5,
+  'Radar Station Control Room': 5,
+  'Lab Building Archive Room': 5,
+  'Lab Building Office': 5,
+  'Radar Station Conference Room': 4,
+  'Cargo Plane Conference Room': 4,
+  'Town Diner': 4,
+  'Checkpoint Storeroom': 3,
+  'Radar Station Side Entrance': 3,
+  'Farm Admin Room': 3,
+  'Small Train Station Ticket Office': 3,
+
+  // Brakkesh
+  'Underground Vault Storage': 6,
+  'Hotel Dining Room': 6,
+  'Old Bath VIP Room': 6,
+  'Museum Exhibition Suite': 6,
+  'CEO Conference Room': 6,
+  'Relink Implant Surgery Room': 5,
+  'Medical Conference Room': 5,
+  'Museum Abandoned Exhibition Hall': 5,
+  'Interrogation Room 1': 5,
+  'Outpatient Room': 5,
+  'New Tower of Babel Power Access': 5,
+  'Biological Data Server Room': 5,
+  'Museum Surveillance Room': 5,
+  'Ocean Monitoring Hall': 4,
+  'Old Bath Diner': 4,
+  'East Town Residential Bedroom': 4,
+  'Hotel Staff Break Room': 4,
+  'West Town Residential Bedroom': 4,
+
+  // Space City
+  'CEO Office Reception Room': 6,
+  'Black Chamber Server Room': 6,
+  'Test Range Core': 6,
+  'Test Range Data Center': 5,
+  'Eastern Suspension Bridge': 5,
+  'Test Range Glass Room': 4,
+  'No.3 Dormitory Back Room': 4,
+  'Employee Passage': 4,
+  'West Gate': 4,
+  'Assembly Workshop 2F Lab': 4,
+  'Central Command Room 3F': 4,
+  'Buoyancy Lab Infirmary': 4,
+};
+
+/** A keycard's grade, or null where none is published. */
+export const keycardTier = (name: string): number | null => KEYCARD_TIER[name] ?? null;
+
 /** How many keys you are allowed to take into a raid. */
 export const MAX_KEYS = 5;
 

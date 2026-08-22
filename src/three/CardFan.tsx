@@ -18,6 +18,8 @@
 
 import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
 import * as THREE from 'three';
+import { keycardTier } from '../data/deltaforce';
+import { TIER_NAME, tierHex, tierRgba } from '../data/rarity';
 import { hashString } from '../engine/rng';
 import { frameCamera } from './frame';
 import { renderLoop } from './renderLoop';
@@ -142,25 +144,40 @@ function backTexture(): THREE.CanvasTexture {
 }
 
 /** The face of one card: KEYCARD, then the room it opens, wrapped to fit. */
-function faceTexture(label: string): THREE.CanvasTexture {
+function faceTexture(label: string, tier: number | null): THREE.CanvasTexture {
   const c = document.createElement('canvas');
   c.width = 256;
   c.height = 376;
   const g = c.getContext('2d')!;
 
+  // The card carries its grade the way the reels do: the game's own 1-6 rarity
+  // colour on the header, the border and a wash up the face. An ungraded card
+  // — the tiered access cards, which nobody publishes a grade for — keeps the
+  // plain cream it always had rather than being given a colour it has not
+  // earned.
+  const accent = tier === null ? '#2f6f52' : tierHex(tier);
+
   g.fillStyle = '#e9e6dc';
   g.fillRect(0, 0, c.width, c.height);
-  g.strokeStyle = '#1b2a24';
+  if (tier !== null) {
+    const wash = g.createLinearGradient(0, 0, 0, c.height);
+    wash.addColorStop(0, tierRgba(tier, 0.34));
+    wash.addColorStop(0.55, tierRgba(tier, 0.06));
+    wash.addColorStop(1, tierRgba(tier, 0.16));
+    g.fillStyle = wash;
+    g.fillRect(0, 0, c.width, c.height);
+  }
+  g.strokeStyle = accent;
   g.lineWidth = 5;
   g.strokeRect(10, 10, c.width - 20, c.height - 20);
 
-  g.fillStyle = '#2f6f52';
+  g.fillStyle = accent;
   g.fillRect(10, 10, c.width - 20, 52);
-  g.fillStyle = '#f2f0e8';
+  g.fillStyle = tier === 5 ? '#1a1305' : '#f7f5ee';
   g.font = 'bold 20px ui-monospace, monospace';
   g.textAlign = 'center';
   g.textBaseline = 'middle';
-  g.fillText('KEYCARD', c.width / 2, 37);
+  g.fillText(tier === null ? 'KEYCARD' : TIER_NAME[tier].toUpperCase(), c.width / 2, 37);
 
   // Greedy wrap. Long room names are the norm here, not the exception, so the
   // type size steps down as the name gets longer rather than overflowing.
@@ -185,12 +202,16 @@ function faceTexture(label: string): THREE.CanvasTexture {
   const top = c.height / 2 - ((lines.length - 1) * lh) / 2;
   lines.forEach((l, i) => g.fillText(l, c.width / 2, top + i * lh));
 
-  g.strokeStyle = '#2f6f52';
+  g.strokeStyle = accent;
   g.lineWidth = 3;
   g.beginPath();
   g.moveTo(48, c.height - 52);
   g.lineTo(c.width - 48, c.height - 52);
   g.stroke();
+
+  g.fillStyle = '#4a5a52';
+  g.font = '600 15px ui-monospace, monospace';
+  g.fillText('KEYCARD', c.width / 2, c.height - 32);
 
   const t = new THREE.CanvasTexture(c);
   t.colorSpace = THREE.SRGBColorSpace;
@@ -517,7 +538,7 @@ export const CardFan = forwardRef<CardFanHandle, Props>(function CardFan(
           const [card] = fanOrder.splice(pick, 1);
 
           card.face?.dispose();
-          card.face = faceTexture(label);
+          card.face = faceTexture(label, keycardTier(label));
           const mats = card.mesh.material as THREE.MeshStandardMaterial[];
           mats[2].map = card.face;
           mats[2].needsUpdate = true;
