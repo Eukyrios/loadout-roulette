@@ -13,6 +13,7 @@ import {
   WHEEL_POCKETS,
   keycardsFor,
 } from './data/deltaforce';
+import { ATTACH_BY_CAT, ATTACH_SLOTS, type Attachment } from './data/attachments';
 import { SLOTS } from './data/slots';
 import type { Entry, FilterState, Roll } from './data/types';
 import { defaultFilterState, resolvePools } from './engine/filters';
@@ -23,6 +24,7 @@ import {
   emptySlots,
   rollAll,
   rollDie,
+  rollCapsule,
   rollKeycard,
   rollPocket,
   rollSlot,
@@ -33,6 +35,7 @@ import { RouletteWheel, type RouletteHandle } from './three/RouletteWheel';
 import { DiceTray, type DiceHandle } from './three/DiceTray';
 import { StickCup, type StickHandle } from './three/StickCup';
 import { CardFan, type CardFanHandle } from './three/CardFan';
+import { CapsuleMachine, type CapsuleHandle } from './three/CapsuleMachine';
 
 /**
  * Base spin length for one reel. Reels run STRICTLY ONE AT A TIME, left to
@@ -110,6 +113,10 @@ export default function App() {
   const [keys, setKeys] = useState<number[]>([]);
   const [keyBusy, setKeyBusy] = useState(false);
 
+  // --- attachments, dispensed by the capsule machine ------------------------
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const [capsuleBusy, setCapsuleBusy] = useState(false);
+
   // --- squad size, drawn from the stick cup --------------------------------
   const [squad, setSquad] = useState<Entry | null>(null);
   const [stickBusy, setStickBusy] = useState(false);
@@ -119,6 +126,7 @@ export default function App() {
   const diceRef = useRef<DiceHandle>(null);
   const stickRef = useRef<StickHandle>(null);
   const cardRef = useRef<CardFanHandle>(null);
+  const capsuleRef = useRef<CapsuleHandle>(null);
   const wheelRef = useRef<RouletteHandle>(null);
   const coinSlotRef = useRef<HTMLDivElement>(null);
   /** Columns still waiting to spin, in order. Drained by onSpinEnd. */
@@ -454,6 +462,36 @@ export default function App() {
     setKeys([]);
   }, [keyBusy]);
 
+  /* --- the capsule machine ------------------------------------------------ */
+
+  const weapon = rolls.weapon?.entry ?? null;
+  /** Five slots' worth. Fit is deliberately ignored — see CapsuleMachine. */
+  const CAPSULE_SIZE = 5;
+
+  // A new gun means the old capsule's contents are no longer "what you got".
+  useEffect(() => {
+    setAttachments([]);
+    capsuleRef.current?.reset();
+  }, [weapon?.id]);
+
+  const turnCrank = useCallback(async () => {
+    if (capsuleBusy || !weapon) return;
+    setCapsuleBusy(true);
+    const n = (spins.__capsule ?? 0) + 1;
+    setSpins((p) => ({ ...p, __capsule: n }));
+
+    const picks = rollCapsule(seed, n, CAPSULE_SIZE)
+      .map(([slot, idx]) => (ATTACH_BY_CAT[ATTACH_SLOTS[slot]] ?? [])[idx])
+      .filter(Boolean);
+
+    // Crank, bounce and pop all come from the machine itself, on the beat the
+    // capsule actually moves, rather than being guessed at with timers here.
+    await capsuleRef.current?.dispense(picks);
+
+    setAttachments(picks);
+    setCapsuleBusy(false);
+  }, [capsuleBusy, seed, spins, weapon]);
+
   const drawStick = useCallback(async () => {
     if (stickBusy) return;
     setStickBusy(true);
@@ -645,6 +683,64 @@ export default function App() {
       </section>
 
       {/* --------------------------------------------------- stage four */}
+      <section className="stage stage--capsule">
+        <div className="stage__wheel stage__wheel--capsule">
+          <CapsuleMachine
+            ref={capsuleRef}
+            className="wheelcanvas"
+            onCrank={() => sfx.crank()}
+            onBounce={(v) => sfx.capsuleBounce(v)}
+            onOpen={() => sfx.capsuleOpen()}
+          />
+          <div className="wheelglow" aria-hidden="true" />
+
+        </div>
+
+        <div className="stage__side">
+          <SectionTitle>4 · Crank for attachments</SectionTitle>
+
+          <div className="caps">
+            <div className="caps__head">
+              <span className="caps__label">In the capsule</span>
+              <span className="caps__for">{weapon ? weapon.name : 'No weapon'}</span>
+            </div>
+
+            {attachments.length > 0 ? (
+              <ul className="caps__list">
+                {attachments.map((a) => (
+                  <li key={a.id} className="caps__item">
+                    <span className="caps__slot">{a.cat}</span>
+                    <span className="caps__name">{a.name}</span>
+                    <span className="caps__price">{a.price.toLocaleString('en-US')}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="caps__empty">
+                {weapon ? 'Nothing dispensed yet' : 'Roll a weapon in stage 2 first'}
+              </p>
+            )}
+          </div>
+
+          <p className="stage__hint">
+            The machine does not care what you rolled. Nobody publishes which
+            attachments fit which gun, so rather than invent a compatibility table
+            it hands you five slots at random — expect an M249 handguard for your MP5.
+          </p>
+
+          <button
+            type="button"
+            className="btn btn--primary"
+            onClick={() => void turnCrank()}
+            disabled={capsuleBusy || !weapon}
+            title={weapon ? 'Shake the globe and drop a capsule' : 'Roll a weapon in stage 2 first'}
+          >
+            {capsuleBusy ? 'Dispensing…' : 'Turn the crank'}
+          </button>
+        </div>
+      </section>
+
+      {/* --------------------------------------------------- stage five */}
       <section className="stage stage--cards">
         <div className="stage__wheel stage__wheel--cards">
           <CardFan
@@ -658,7 +754,7 @@ export default function App() {
         </div>
 
         <div className="stage__side">
-          <SectionTitle>4 · Draw your keycards</SectionTitle>
+          <SectionTitle>5 · Draw your keycards</SectionTitle>
 
           <div className="keys">
             <div className="keys__head">
@@ -723,7 +819,7 @@ export default function App() {
         </div>
       </section>
 
-      {/* --------------------------------------------------- stage five */}
+      {/* ---------------------------------------------------- stage six */}
       <section className="stage stage--sticks">
         <div className="stage__wheel stage__wheel--sticks">
           <StickCup
@@ -736,7 +832,7 @@ export default function App() {
         </div>
 
         <div className="stage__side">
-          <SectionTitle>5 · Draw for squad size</SectionTitle>
+          <SectionTitle>6 · Draw for squad size</SectionTitle>
 
           <div className={`squad squad--${squad?.id ?? 'none'}`}>
             <span className="squad__bands" aria-hidden="true">

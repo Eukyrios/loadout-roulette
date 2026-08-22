@@ -327,6 +327,29 @@ export const sfx = {
     knock(900, 0.09, 0.05, 3);
   },
 
+  /* --- capsule machine --- */
+  /** The crank turning, then the capsule rattling down the chute. */
+  crank: () => {
+    sweep(180, 90, 0.42, 0.05, 'square');
+    for (let i = 0; i < 5; i++) knock(320 + Math.random() * 400, 0.05, 0.06, 4);
+  },
+  /** The capsule hitting the tray. Hard plastic, not felt. */
+  capsuleBounce: (strength = 1) => {
+    const s = Math.max(0.1, Math.min(1, strength));
+    knock(1500 + Math.random() * 900, 0.05 + 0.03 * s, 0.05 + 0.12 * s, 9);
+    tone(760 + Math.random() * 260, 0.05, 0.03 * s, 'triangle');
+  },
+  /** The seam unclipping: a pop, then the reveal. */
+  capsuleOpen: () => {
+    knock(2600, 0.04, 0.16, 14);
+    sweep(420, 1500, 0.3, 0.05, 'triangle');
+    [659.25, 987.77, 1318.5].forEach((f, i) => {
+      tone(f, 0.3, 0.05, 'triangle', 0.06 + i * 0.07);
+      tone(f * 2, 0.2, 0.02, 'sine', 0.07 + i * 0.07);
+    });
+    knock(3400, 0.45, 0.045, 3);
+  },
+
   /* --- stick draw --- */
   /** Bamboo clattering as the cup is worked. Higher and drier than the dice. */
   stickRattle: (strength = 1) => {

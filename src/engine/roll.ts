@@ -6,6 +6,7 @@
 import type { Entry, FilterState, Roll } from '../data/types';
 import { SLOTS } from '../data/slots';
 import { STICK_BUNDLE, WHEEL_POCKETS } from '../data/deltaforce';
+import { ATTACH_BY_CAT, ATTACH_SLOTS } from '../data/attachments';
 import { poolFor } from './filters';
 import { hashString, mulberry32, pickWeighted } from './rng';
 
@@ -100,6 +101,31 @@ export function rollKeycard(seed: string, spin: number, deck: number, taken: num
   for (let i = 0; i < deck; i++) if (!taken.includes(i)) free.push(i);
   if (free.length === 0) return -1;
   return free[Math.floor(streamFor(seed, 'keys', spin)() * free.length) % free.length];
+}
+
+/**
+ * What is inside a capsule: `count` distinct attachments, one from each of
+ * `count` different slots.
+ *
+ * Distinct SLOTS rather than distinct items, so a pull never comes out as five
+ * muzzles — the row reads as a kit even though nothing about it fits together.
+ */
+export function rollCapsule(seed: string, spin: number, count: number): number[][] {
+  const rng = streamFor(seed, 'capsule', spin);
+  const slots = [...ATTACH_SLOTS];
+  // Fisher-Yates on the slot list, then one item from each of the first
+  // `count` — drawing slots independently would repeat them.
+  for (let i = slots.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [slots[i], slots[j]] = [slots[j], slots[i]];
+  }
+  const out: number[][] = [];
+  for (const slot of slots.slice(0, count)) {
+    const pool = ATTACH_BY_CAT[slot] ?? [];
+    if (pool.length === 0) continue;
+    out.push([ATTACH_SLOTS.indexOf(slot as never), Math.floor(rng() * pool.length) % pool.length]);
+  }
+  return out;
 }
 
 /** Which wheel pocket wins this spin. Seeded, so a share link reproduces it. */

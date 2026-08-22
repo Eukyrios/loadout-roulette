@@ -1086,6 +1086,93 @@ body {
   color: var(--text-faint);
 }
 
+/* -------------------------------------------------------- capsule machine */
+
+.stage--capsule {
+  margin-bottom: 22px;
+  background:
+    radial-gradient(120% 90% at 50% 0%, rgba(var(--accent-rgb), 0.07), transparent 60%),
+    linear-gradient(180deg, #16181f 0%, #080d12 100%);
+}
+
+.stage__wheel--capsule {
+  /* Sized to the widest thing it has to show: a row of five cards is roughly
+     1.45 times as wide as it is tall once projected, and a canvas much taller
+     than that letterboxes the row into the middle with dead bands above and
+     below. The idle machine is height-bound instead and fills it happily. */
+  min-height: 430px;
+}
+
+.caps {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.28);
+  padding: 10px 12px;
+}
+
+.caps__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.caps__label {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.caps__for {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--accent);
+  text-align: right;
+}
+
+.caps__list {
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 5px;
+}
+
+/* One treatment for every slot, matching the cards. Colour-coding them turned
+   both the row and this list into a paint chart. */
+.caps__item {
+  display: grid;
+  grid-template-columns: 74px 1fr auto;
+  gap: 9px;
+  align-items: baseline;
+  padding-left: 8px;
+  border-left: 3px solid var(--accent-dim);
+  font-size: 13px;
+  color: var(--text);
+}
+
+.caps__slot {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.caps__price {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text-faint);
+}
+
+.caps__empty {
+  margin: 8px 0 0;
+  font-size: 13px;
+  color: var(--text-faint);
+}
+
 /* ------------------------------------------------------------ keycards */
 
 .stage--cards {
