@@ -61,9 +61,23 @@
 
     <!-- Enough of the page to survive with the stylesheet not yet applied:
          this is what a crawler that does not run scripts, and a reader whose
-         bundle has not arrived, actually see. -->
+         bundle has not arrived, actually see.
+
+         It starts invisible and only fades in after half a second, so a normal
+         load never shows it at all — React has replaced it long before the
+         animation begins. Without the delay every visitor got a flash of this
+         text before the app appeared. A slow connection still gets a tidy
+         loading panel rather than a blank screen, and a crawler reading the
+         HTML never runs any of this and simply sees the copy. -->
     <style>
+      @keyframes boot-in {
+        to {
+          opacity: 1;
+        }
+      }
       .boot {
+        opacity: 0;
+        animation: boot-in 0.25s ease-out 0.55s forwards;
         max-width: 42rem;
         margin: 0 auto;
         padding: 3rem 1.25rem;

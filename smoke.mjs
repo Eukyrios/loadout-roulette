@@ -576,7 +576,37 @@ check(
   check('script-less crawlers get real copy', copy.length > 300, `${copy.length} chars`);
   check('copy names the game and the stages',
     /Delta Force/i.test(copy) && /keycards/i.test(copy) && /squad size/i.test(copy));
+  // With no bundle coming it must actually show, or the page is a blank screen.
+  await np.waitForTimeout(1200);
+  const stranded = await np.evaluate(() => +getComputedStyle(document.querySelector('.boot')).opacity);
+  check('the fallback shows when the app never arrives', stranded > 0.9, `opacity ${stranded}`);
   await noJs.close();
+
+  /**
+   * ...and on a normal load it must never be seen. It is held at zero opacity
+   * and only fades in after half a second, by which time React has replaced
+   * it — otherwise every visitor gets a flash of this copy before the app.
+   */
+  {
+    const q = await browser.newPage();
+    await q.addInitScript(() => {
+      window.__bootOpacity = [];
+      const tick = () => {
+        const b = document.querySelector('.boot');
+        window.__bootOpacity.push(b ? +getComputedStyle(b).opacity : -1);
+        if (window.__bootOpacity.length < 90) requestAnimationFrame(tick);
+      };
+      document.addEventListener('DOMContentLoaded', tick);
+    });
+    await q.goto('http://localhost:4321/', { waitUntil: 'networkidle' });
+    await q.waitForTimeout(1200);
+    const samples = await q.evaluate(() => window.__bootOpacity);
+    const seen = samples.filter((v) => v > 0.02).length;
+    check('and never flashes on a normal load', seen === 0,
+      `${seen} of ${samples.length} frames visible, peak ${Math.max(...samples).toFixed(2)}`);
+    check('the app replaced it', (await q.locator('.legend__item').count()) === 3);
+    await q.close();
+  }
 
   const meta = await page.evaluate(() => {
     const g = (sel, attr = 'content') => document.querySelector(sel)?.getAttribute(attr) ?? null;
