@@ -1,0 +1,59 @@
+name: Refresh prices
+
+# Once a day, at 05:00 UTC. Off-peak on GitHub's scheduler, which runs cron
+# jobs on a best-effort basis and delays them most around the top of the hour
+# and around midnight — so treat the time as "about 05:00", not exactly.
+#
+# For more often: '0 */6 * * *' is every six hours, '0 * * * *' hourly. The
+# script leaves the file untouched when nothing moved, so a more frequent
+# schedule costs workflow runs but does not fill the history with commits.
+on:
+  schedule:
+    - cron: '0 5 * * *'
+  workflow_dispatch: # run it by hand from the Actions tab
+
+# The job pushes a commit, so it needs write access to the repo.
+permissions:
+  contents: write
+
+# Never let two runs push at once; drop the older one if it is still going.
+concurrency:
+  group: prices
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Scrape current prices
+        run: node tools/fetch-prices.mjs
+
+      # Only relevant if the built site is committed rather than built in CI.
+      # Without this, a repo that serves a checked-in dist/ would keep serving
+      # yesterday's prices however often the source file updated.
+      - name: Mirror into dist/ if the build is committed
+        run: |
+          if git ls-files --error-unmatch dist/index.html >/dev/null 2>&1; then
+            cp public/prices.json dist/prices.json
+            echo "copied into dist/"
+          else
+            echo "dist/ is not tracked — nothing to mirror"
+          fi
+
+      - name: Commit if anything changed
+        run: |
+          if git diff --quiet; then
+            echo "prices unchanged — nothing to commit"
+            exit 0
+          fi
+          git config user.name  'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add public/prices.json dist/prices.json 2>/dev/null || git add public/prices.json
+          git commit -m "chore: refresh auction-house prices"
+          git push

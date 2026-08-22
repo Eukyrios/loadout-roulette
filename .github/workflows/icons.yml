@@ -1,0 +1,44 @@
+name: Mirror attachment icons
+
+# Manual only. Icons do not change on a schedule, and this walks 412 wiki pages
+# to find them — not something to run every day. Trigger it from the Actions
+# tab after adding attachments, or once to populate public/att/ the first time.
+#
+# Until it has run, the capsules open onto cards with a slot glyph instead of a
+# picture. That is a designed fallback, not a broken state.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: icons
+  cancel-in-progress: false
+
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+    # 412 pages at a quarter-second apart, plus the downloads.
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Download any icons not already mirrored
+        run: node tools/fetch-images.mjs
+
+      - name: Commit whatever is new
+        run: |
+          if git diff --quiet -- public/att; then
+            echo "no new icons"
+            exit 0
+          fi
+          git config user.name  'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add public/att
+          git commit -m "chore: mirror attachment icons"
+          git push
