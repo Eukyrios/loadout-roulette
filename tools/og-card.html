@@ -1,0 +1,36 @@
+<!doctype html><html><head><meta charset="utf-8">
+<!--
+  Source for public/og.png — the 1200x630 card that Discord, Twitter and
+  Google show when the link is shared. Not served: it lives here so the image
+  can be regenerated rather than being a binary nobody can edit.
+
+  To rebuild it, render this file at exactly 1200x630 and screenshot the page,
+  e.g. with Playwright:
+    page = browser.newPage({ viewport: { width: 1200, height: 630 } })
+    page.goto('file://.../tools/og-card.html'); page.screenshot({ path: 'public/og.png' })
+  Keep it to ONE row of chips — a second row overflows 630 and gets cropped.
+--><style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{width:1200px;height:630px;overflow:hidden;background:
+ radial-gradient(900px 520px at 18% -10%, #0e2a33 0%, transparent 62%),
+ radial-gradient(760px 460px at 92% 20%, #08202a 0%, transparent 60%),
+ #060e13;
+ color:#fafafa;font-family:"DejaVu Sans",system-ui,sans-serif;
+ display:flex;flex-direction:column;justify-content:center;padding:60px 76px;position:relative;overflow:hidden}
+.bar{position:absolute;left:0;top:0;bottom:0;width:10px;background:linear-gradient(180deg,#0ff796,rgba(15,247,150,.12))}
+.eyebrow{font-family:"DejaVu Sans Mono",monospace;font-size:22px;letter-spacing:.28em;color:#0ff796;text-transform:uppercase;margin-bottom:22px}
+h1{font-size:90px;line-height:.98;letter-spacing:-.03em;font-weight:800;text-transform:uppercase}
+h1 span{color:#0ff796}
+p{margin-top:22px;font-size:28px;line-height:1.4;color:#95a8b4;max-width:900px}
+ul{display:flex;gap:10px;margin-top:36px;list-style:none;flex-wrap:wrap;max-width:1040px}
+li{font-family:"DejaVu Sans Mono",monospace;font-size:15px;letter-spacing:.03em;padding:9px 15px;border:1px solid #1f333e;border-radius:999px;color:#cfe0e8;background:rgba(0,0,0,.3);white-space:nowrap}
+li b{color:#0ff796;font-weight:700;margin-right:8px}
+.glow{position:absolute;right:-160px;bottom:-220px;width:620px;height:620px;border-radius:50%;
+ background:radial-gradient(closest-side,rgba(15,247,150,.16),transparent 70%)}
+</style></head><body>
+<div class="bar"></div><div class="glow"></div>
+<div class="eyebrow">Delta Force · Operations</div>
+<h1>Loadout<br><span>Roulette</span></h1>
+<p>Spin for difficulty, pull the reels for your kit, roll your spending caps, draw your keycards, and see if you run it solo.</p>
+<ul><li><b>1</b>Spin the wheel</li><li><b>2</b>Pull the slots</li><li><b>3</b>Throw the dice</li><li><b>4</b>Draw the cards</li><li><b>5</b>Shake the cup</li></ul>
+</body></html>

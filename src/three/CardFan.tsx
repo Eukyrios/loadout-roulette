@@ -18,12 +18,19 @@
 
 import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
 import * as THREE from 'three';
+import { hashString } from '../engine/rng';
 import { frameCamera } from './frame';
 import { renderLoop } from './renderLoop';
 
 export interface CardFanHandle {
-  /** Pull a card out of the fan into hand `slot`, revealing `label`. */
-  draw: (slot: number, label: string) => Promise<void>;
+  /**
+   * Pull a card out of the fan into hand `slot`, revealing `label`.
+   *
+   * `last` says this is the final card the hand can hold — the deck may be
+   * smaller than five, so only the caller knows. On the last one the whole
+   * hand stands up to face the camera once it lands.
+   */
+  draw: (slot: number, label: string, last?: boolean) => Promise<void>;
   /** Put every card back, face-down. */
   reset: () => void;
 }
@@ -34,6 +41,8 @@ interface Props {
   onSlide?: () => void;
   /** Fired at the moment it turns over. */
   onFlip?: () => void;
+  /** Fired as the deck is riffled, before it fans out. */
+  onShuffle?: () => void;
 }
 
 /** How many cards are in the fan. The deck of ROOMS may be a different size —
@@ -57,6 +66,26 @@ const HAND_GAP = 1.42;
 const HAND_Z = 2.5;
 
 const DRAW_MS = 1250;
+
+/**
+ * The opening: the deck arrives as a squared-up pile, gets riffled, and only
+ * then spreads into the fan. Seconds, cumulative.
+ *
+ * Paced to be watched. At half these numbers the three cuts blurred into one
+ * twitch and the whole thing read as a glitch rather than a shuffle — the
+ * point of the beat is that you can see the deck being worked.
+ */
+const PILE_HOLD = 0.8;
+const RIFFLE = 3.4;
+const SPREAD_OUT = 1.1;
+const INTRO_END = PILE_HOLD + RIFFLE + SPREAD_OUT;
+/** How many times the deck is cut, and how far the halves travel. */
+const CUTS = 3;
+const CUT_REACH = 1.15;
+/** Where the squared-up pile sits — the middle of the arc it will open into. */
+const PILE_Z = PIVOT_Z - ARM;
+/** How long the finished hand takes to rise and face you. */
+const PRESENT_MS = 1050;
 
 const clamp01 = (u: number) => (u < 0 ? 0 : u > 1 ? 1 : u);
 const easeInOut = (u: number) => (u < 0.5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2);
@@ -172,13 +201,13 @@ function faceTexture(label: string): THREE.CanvasTexture {
 /* ------------------------------------------------------------ component */
 
 export const CardFan = forwardRef<CardFanHandle, Props>(function CardFan(
-  { className, onSlide, onFlip },
+  { className, onSlide, onFlip, onShuffle },
   ref,
 ) {
   const mountRef = useRef<HTMLDivElement>(null);
   const api = useRef<CardFanHandle | null>(null);
-  const cb = useRef({ onSlide, onFlip });
-  cb.current = { onSlide, onFlip };
+  const cb = useRef({ onSlide, onFlip, onShuffle });
+  cb.current = { onSlide, onFlip, onShuffle };
 
   useEffect(() => {
     const mount = mountRef.current;
@@ -267,8 +296,6 @@ export const CardFan = forwardRef<CardFanHandle, Props>(function CardFan(
      */
     interface Card {
       mesh: THREE.Mesh;
-      home: THREE.Vector3;
-      homeQ: THREE.Quaternion;
       /** Set once the card has been taken; drives where it rests. */
       hand: number;
       face: THREE.CanvasTexture | null;
@@ -278,7 +305,6 @@ export const CardFan = forwardRef<CardFanHandle, Props>(function CardFan(
     const flip = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), Math.PI);
 
     for (let i = 0; i < FAN_COUNT; i++) {
-      const a = (i - (FAN_COUNT - 1) / 2) * SPREAD;
       const mesh = new THREE.Mesh(cardGeo, [
         edgeMat,
         edgeMat,
@@ -290,25 +316,91 @@ export const CardFan = forwardRef<CardFanHandle, Props>(function CardFan(
       trash.push((mesh.material as THREE.Material[])[2]);
       mesh.castShadow = true;
       mesh.receiveShadow = true;
-
-      // Stacked by a hair so neighbours in the fan do not z-fight, and so the
-      // fan reads as overlapping paper rather than one flat shape.
-      const home = new THREE.Vector3(
-        Math.sin(a) * ARM,
-        FLOOR + i * 0.014,
-        PIVOT_Z - Math.cos(a) * ARM,
-      );
-      // Yaw into the fan, THEN roll face-down. Composed the other way round
-      // the flip happens in world space and the fan splays the wrong way.
-      const homeQ = new THREE.Quaternion()
-        .setFromAxisAngle(new THREE.Vector3(0, 1, 0), a)
-        .multiply(flip);
-
-      mesh.position.copy(home);
-      mesh.quaternion.copy(homeQ);
       scene.add(mesh);
-      cards.push({ mesh, home, homeQ, hand: -1, face: null });
+      cards.push({ mesh, hand: -1, face: null });
     }
+
+    /** The cards still in the fan, left to right. Draws splice out of this. */
+    let fanOrder: Card[] = [...cards];
+
+    /**
+     * Where a card sits in the fan, given its place in the spread and how many
+     * cards are left in it.
+     *
+     * Computed from the CURRENT count rather than a fixed home, so taking a
+     * card out of the middle closes the gap behind it instead of leaving a
+     * notch — the fan tightens as it empties, the way a real one does.
+     */
+    const fanPose = (rank: number, total: number, pos: THREE.Vector3, q: THREE.Quaternion) => {
+      const a = (rank - (total - 1) / 2) * SPREAD;
+      pos.set(Math.sin(a) * ARM, FLOOR + rank * 0.014, PIVOT_Z - Math.cos(a) * ARM);
+      // Yaw into the fan, THEN roll face-down. Composed the other way round the
+      // flip happens in world space and the fan splays the wrong way.
+      q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), a).multiply(flip);
+    };
+
+    /**
+     * Where a card sits in the squared-up pile, before any of this starts.
+     *
+     * The jitter is hashed off the index rather than drawn from Math.random, so
+     * the pile looks hand-stacked but sits identically on every mount instead
+     * of reshuffling itself under the viewer on a re-render.
+     */
+    const jitter = (i: number, salt: number) => ((hashString(`pile${i}:${salt}`) % 1000) / 1000 - 0.5);
+    const pilePose = (i: number, pos: THREE.Vector3, q: THREE.Quaternion) => {
+      pos.set(jitter(i, 1) * 0.05, FLOOR + i * CARD_T * 0.85, PILE_Z + jitter(i, 2) * 0.05);
+      q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), jitter(i, 3) * 0.05).multiply(flip);
+    };
+
+    /**
+     * The opening flourish: hold the pile, riffle it, then spread it out.
+     *
+     * `t` is seconds of ANIMATION, accumulated frame by frame rather than read
+     * off the clock, so a stage scrolled away mid-shuffle pauses and picks up
+     * where it left off — the render loop stops feeding it frames, and a
+     * wall-clock version would silently skip to the end.
+     */
+    const introPos = new THREE.Vector3();
+    const introQ = new THREE.Quaternion();
+    const fanPos = new THREE.Vector3();
+    const fanQ = new THREE.Quaternion();
+
+    const layoutIntro = (t: number) => {
+      for (let i = 0; i < fanOrder.length; i++) {
+        const card = fanOrder[i];
+        pilePose(i, introPos, introQ);
+
+        if (t > PILE_HOLD && t < PILE_HOLD + RIFFLE) {
+          // Cut the deck: the two halves swing apart and drop back together,
+          // staggered within each half so they interleave rather than moving
+          // as two slabs.
+          const k = (t - PILE_HOLD) / RIFFLE;
+          const half = i < fanOrder.length / 2 ? -1 : 1;
+          const lag = (i % Math.ceil(fanOrder.length / 2)) / fanOrder.length;
+          const cycle = Math.max(0, Math.min(1, (k * CUTS - lag * 0.6) % 1));
+          const swing = Math.sin(Math.PI * cycle);
+          introPos.x += half * CUT_REACH * swing;
+          introPos.y += swing * 0.22;
+          introQ.multiply(
+            new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), half * swing * 0.12),
+          );
+        }
+
+        if (t >= PILE_HOLD + RIFFLE) {
+          // Spread, swept open from one end rather than all at once.
+          const k = Math.min(1, (t - PILE_HOLD - RIFFLE) / SPREAD_OUT);
+          const lag = (i / fanOrder.length) * 0.45;
+          const e = easeInOut(clamp01((k - lag) / (1 - lag || 1)));
+          fanPose(i, fanOrder.length, fanPos, fanQ);
+          introPos.lerp(fanPos, e);
+          introQ.slerp(fanQ, e);
+        }
+
+        card.mesh.position.copy(introPos);
+        card.mesh.quaternion.copy(introQ);
+        card.mesh.scale.set(1, 1, 1);
+      }
+    };
 
     /**
      * Where a card in hand slot `n` rests, given how many cards are in hand.
@@ -318,10 +410,55 @@ export const CardFan = forwardRef<CardFanHandle, Props>(function CardFan(
      * stranded out at the left-hand end of an empty row. The cards already
      * down shuffle across to make room as the hand grows.
      */
-    const handPos = (n: number, count: number) =>
-      new THREE.Vector3((n - (count - 1) / 2) * HAND_GAP, FLOOR + 0.02, HAND_Z);
+    const handPos = (n: number, count: number, gap = HAND_GAP) =>
+      new THREE.Vector3((n - (count - 1) / 2) * gap, FLOOR + 0.02, HAND_Z);
     // Tipped a touch away from level, so the face catches the key light.
     const handQ = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), -0.08);
+
+    /**
+     * The finished hand, stood up square to the camera.
+     *
+     * Rotating by exactly the camera's own tilt puts the card faces
+     * perpendicular to the view: flat on the felt they are read at a 50°
+     * slant, which is fine for one glance and poor for reading five room
+     * names at once.
+     *
+     * Standing them up also swings the bottom edge under the felt, so the
+     * whole row lifts by the height it gains — half a card's length times the
+     * sine of the tilt — and ends up resting ON the table rather than
+     * through it.
+     */
+    const standQ = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), CAM_TILT);
+    const HALF_CARD = (CARD_H * HAND_SCALE) / 2;
+    /**
+     * The rise, in three parts: the height a card gains simply by standing up
+     * (without it the bottom edge swings under the felt), then a real lift
+     * clear of the table, then a step towards the camera. The last two are
+     * what make it read as the hand FLOATING up to be read, rather than a row
+     * of cards tipping over on the spot.
+     */
+    const STAND_LIFT = HALF_CARD * Math.sin(CAM_TILT);
+    const FLOAT_UP = 0.5;
+    const FLOAT_IN = 0.4;
+    /**
+     * Standing cards need more elbow room than lying ones.
+     *
+     * Flat, a card only takes up its width times the cosine of the tilt on
+     * screen; stood up it takes its whole width, and at the lying-down spacing
+     * the row overlapped itself and clipped half the room names. Scaling the
+     * cards up instead does nothing — the frame is fitted to the row's width,
+     * so bigger cards in the same row just pull the camera back by the same
+     * factor. Only the ratio of card to gap can change how big they read.
+     */
+    const PRESENT_GAP = 1.44;
+
+    /** Blends a hand card between lying flat (`p` = 0) and floating up (`p` = 1). */
+    const poseHand = (n: number, count: number, p: number, pos: THREE.Vector3, q: THREE.Quaternion) => {
+      pos.copy(handPos(n, count, HAND_GAP + (PRESENT_GAP - HAND_GAP) * p));
+      pos.y += (STAND_LIFT + FLOAT_UP) * p;
+      pos.z += FLOAT_IN * p;
+      q.slerpQuaternions(handQ, standQ, p);
+    };
 
     /* --------------------------------------------------------- animation */
     interface Mover {
@@ -330,13 +467,23 @@ export const CardFan = forwardRef<CardFanHandle, Props>(function CardFan(
       fromQ: THREE.Quaternion;
       fromS: number;
       to: THREE.Vector3;
+      /** Where it should end up pointing. */
+      toQ: THREE.Quaternion;
       /** Only the card being taken arcs over the others. */
       lift: boolean;
+      /** Cards closing the fan stay full size; cards joining the hand shrink. */
+      keepScale?: boolean;
     }
+
+    /** Seconds of animation elapsed in the pile-shuffle-fan opening. */
+    let introT = 0;
+    let shuffled = false;
 
     let movers: Mover[] = [];
     let startedAt = 0;
     let flipped = false;
+    /** Set by the final draw, so the hand stands up once that card lands. */
+    let standAfter = false;
     let resolveDraw: (() => void) | null = null;
 
     /**
@@ -348,20 +495,26 @@ export const CardFan = forwardRef<CardFanHandle, Props>(function CardFan(
      */
     let shownCount = 0;
     let targetCount = 0;
+    /** 0 = hand lying on the felt, 1 = stood up facing the camera. */
+    let present = 0;
+    let presentTarget = 0;
     let viewW = 1;
     let viewH = 1;
     let camDirty = true;
 
     api.current = {
-      draw: (slot: number, label: string) =>
+      draw: (slot: number, label: string, last = false) =>
         new Promise<void>((resolve) => {
-          // Take from the top of the fan inward, so the shape stays tidy as it
-          // empties instead of developing gaps in the middle.
-          const card = cards.filter((c) => c.hand < 0).pop();
-          if (!card) {
+          // Taken from anywhere in the spread, not off the end — you are
+          // pulling a card out of a fan, not dealing off the top. Which one is
+          // hashed from the key it carries rather than drawn from Math.random,
+          // so a shared seed replays the same hand from the same places.
+          if (fanOrder.length === 0) {
             resolve();
             return;
           }
+          const pick = Math.abs(hashString(`pull:${label}:${slot}`)) % fanOrder.length;
+          const [card] = fanOrder.splice(pick, 1);
 
           card.face?.dispose();
           card.face = faceTexture(label);
@@ -380,6 +533,7 @@ export const CardFan = forwardRef<CardFanHandle, Props>(function CardFan(
               fromQ: card.mesh.quaternion.clone(),
               fromS: card.mesh.scale.x,
               to: handPos(card.hand, count),
+              toQ: handQ,
               lift: true,
             },
             // Everything already down slides across to keep the row centred.
@@ -389,11 +543,29 @@ export const CardFan = forwardRef<CardFanHandle, Props>(function CardFan(
               fromQ: c.mesh.quaternion.clone(),
               fromS: c.mesh.scale.x,
               to: handPos(i, count),
+              toQ: handQ,
               lift: false,
             })),
+            // ...and the fan closes the gap the drawn card left behind.
+            ...fanOrder.map((c, i) => {
+              const pos = new THREE.Vector3();
+              const q = new THREE.Quaternion();
+              fanPose(i, fanOrder.length, pos, q);
+              return {
+                card: c,
+                from: c.mesh.position.clone(),
+                fromQ: c.mesh.quaternion.clone(),
+                fromS: c.mesh.scale.x,
+                to: pos,
+                toQ: q,
+                lift: false,
+                keepScale: true,
+              };
+            }),
           ];
 
           targetCount = count;
+          standAfter = last;
           startedAt = performance.now();
           flipped = false;
           resolveDraw = resolve;
@@ -405,10 +577,11 @@ export const CardFan = forwardRef<CardFanHandle, Props>(function CardFan(
         resolveDraw?.();
         resolveDraw = null;
         targetCount = 0;
+        present = 0;
+        presentTarget = 0;
+        standAfter = false;
         for (const c of cards) {
           c.hand = -1;
-          c.mesh.position.copy(c.home);
-          c.mesh.quaternion.copy(c.homeQ);
           c.mesh.scale.set(1, 1, 1);
           c.face?.dispose();
           c.face = null;
@@ -416,8 +589,16 @@ export const CardFan = forwardRef<CardFanHandle, Props>(function CardFan(
           mats[2].map = null;
           mats[2].needsUpdate = true;
         }
+        // Gathered back into a pile and shuffled again, rather than snapping
+        // back into the spread they were already in.
+        fanOrder = [...cards];
+        introT = 0;
+        shuffled = false;
+        layoutIntro(0);
       },
     };
+
+    layoutIntro(0);
 
     /* ------------------------------------------------------------- framing */
     const fanZMin = PIVOT_Z - ARM - CARD_H / 2 - 0.25;
@@ -427,27 +608,61 @@ export const CardFan = forwardRef<CardFanHandle, Props>(function CardFan(
 
     const reframe = () => {
       const open = clamp01(shownCount);
-      const halfHand =
-        ((Math.max(1, shownCount) - 1) / 2) * HAND_GAP + (CARD_W * HAND_SCALE) / 2 + 0.25;
+      const gap = HAND_GAP + (PRESENT_GAP - HAND_GAP) * present;
+      // The air around the row is trimmed away as the hand comes up: it is the
+      // only thing in shot by then, so every unit of padding is a unit the
+      // camera has to back off to cover.
+      const pad = 0.25 - 0.16 * present;
+      const halfHand = ((Math.max(1, shownCount) - 1) / 2) * gap + (CARD_W * HAND_SCALE) / 2 + pad;
       frameCamera(
         camera,
         {
-          min: new THREE.Vector3(-Math.max(fanHalfX, halfHand), -0.2, fanZMin),
+          min: new THREE.Vector3(
+            -Math.max(fanHalfX, halfHand),
+            -0.2,
+            // Once the hand stands up the fan is spent, so the frame stops
+            // reserving room for it and closes onto the row instead. Without
+            // this the taller box just pushes the camera back and the cards
+            // end up SMALLER standing than they were lying down — the opposite
+            // of the point.
+            // Closed right up to the front edge of the risen row.
+            fanZMin + (HAND_Z + FLOAT_IN - HALF_CARD * Math.cos(CAM_TILT) - 0.35 - fanZMin) * present,
+          ),
           max: new THREE.Vector3(
             Math.max(fanHalfX, halfHand),
-            0.9,
-            fanZMax + (handZMax - fanZMax) * open,
+            // A stood-up hand is over a card-length taller than a flat one, and
+            // a box that does not know that crops the tops off the row.
+            0.9 + (FLOOR + 0.02 + FLOAT_UP + 2 * STAND_LIFT + 0.3 - 0.9) * present,
+            fanZMax +
+              (handZMax - (HALF_CARD - HALF_CARD * Math.cos(CAM_TILT)) * present +
+                FLOAT_IN * present - fanZMax) * open,
           ),
         },
-        { tilt: CAM_TILT, width: viewW, height: viewH, margin: 1.04 },
+        { tilt: CAM_TILT, width: viewW, height: viewH, margin: 1.04 - 0.04 * present },
       );
     };
 
     // Still between draws, so it only draws while a card is moving or the
     // framing is still opening out — plus once more after a resize.
     let dirty = true;
-    const settled = () => movers.length === 0 && shownCount === targetCount;
+    const settled = () =>
+      movers.length === 0 &&
+      shownCount === targetCount &&
+      present === presentTarget &&
+      introT >= INTRO_END;
     const frame = (now: number, dt: number) => {
+
+      // The opening runs before anything else can happen, and only while the
+      // stage is on screen — the loop simply stops feeding it frames otherwise,
+      // so it is never spent on a shuffle nobody is watching.
+      if (introT < INTRO_END) {
+        introT += reduced ? dt * 4 : dt;
+        if (!shuffled && introT >= PILE_HOLD) {
+          shuffled = true;
+          cb.current.onShuffle?.();
+        }
+        layoutIntro(Math.min(introT, INTRO_END));
+      }
 
       if (movers.length) {
         const u = clamp01((now - startedAt) / duration);
@@ -459,10 +674,12 @@ export const CardFan = forwardRef<CardFanHandle, Props>(function CardFan(
             // Arced clear of the fan on the way across, so it slides over its
             // neighbours rather than through them.
             m.card.mesh.position.y += Math.sin(Math.PI * u) * 0.75;
-            m.card.mesh.quaternion.slerpQuaternions(m.fromQ, handQ, e);
           }
-          const s = m.fromS + (HAND_SCALE - m.fromS) * e;
-          m.card.mesh.scale.set(s, 1, s);
+          m.card.mesh.quaternion.slerpQuaternions(m.fromQ, m.toQ, e);
+          if (!m.keepScale) {
+            const s = m.fromS + (HAND_SCALE - m.fromS) * e;
+            m.card.mesh.scale.set(s, 1, s);
+          }
         }
 
         // The turn happens around the halfway point of the arc; that is the
@@ -474,11 +691,34 @@ export const CardFan = forwardRef<CardFanHandle, Props>(function CardFan(
 
         if (u >= 1) {
           movers = [];
+          if (standAfter) {
+            standAfter = false;
+            presentTarget = 1;
+          }
           resolveDraw?.();
           resolveDraw = null;
         }
       }
 
+      /**
+       * The finished hand rises to face you.
+       *
+       * Runs after the movers rather than alongside them, so the last card
+       * lands on the felt with the others and the row lifts as one piece —
+       * standing it up mid-flight would have that one card arriving at a
+       * different angle from every other.
+       */
+      if (present !== presentTarget) {
+        const step = (dt * 1000) / PRESENT_MS;
+        present =
+          presentTarget > present
+            ? Math.min(presentTarget, present + step)
+            : Math.max(presentTarget, present - step);
+        const e = present * present * (3 - 2 * present);
+        const placed = cards.filter((c) => c.hand >= 0).sort((a, b) => a.hand - b.hand);
+        placed.forEach((c, i) => poseHand(i, placed.length, e, c.mesh.position, c.mesh.quaternion));
+        camDirty = true;
+      }
       // Framing follows the hand, easing over roughly one draw.
       if (shownCount !== targetCount || camDirty) {
         const step = (dt * 1000) / duration;
@@ -528,7 +768,12 @@ export const CardFan = forwardRef<CardFanHandle, Props>(function CardFan(
   }, []);
 
   useImperativeHandle(ref, () => ({
-    draw: (slot: number, label: string) => api.current?.draw(slot, label) ?? Promise.resolve(),
+    // `last` has to be forwarded explicitly. A wrapper that takes fewer
+    // parameters than the handle it implements is still assignable in
+    // TypeScript, so dropping it here compiled cleanly and silently disabled
+    // the whole stand-up — the scene simply never heard that the hand was full.
+    draw: (slot: number, label: string, last?: boolean) =>
+      api.current?.draw(slot, label, last) ?? Promise.resolve(),
     reset: () => api.current?.reset(),
   }));
 

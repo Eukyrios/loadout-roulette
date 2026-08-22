@@ -487,7 +487,7 @@ check(
     window.__bursts = [];
     new MutationObserver((recs) => {
       for (const r of recs) for (const n of r.addedNodes) {
-        if (n.nodeType !== 1) continue;
+          if (n.nodeType !== 1) continue;
         // A second burst within the 560ms spark lifetime is appended to the
         // container already on the page, so watching only for new .sparks
         // containers silently drops it.
@@ -608,6 +608,70 @@ check(
     check(`${f} is served`, r.status() === 200, String(r.status()));
   }
   check('the app replaces the crawler fallback', (await page.locator('.boot').count()) === 0);
+}
+
+/* --------------------------------------------------- the deck's opening */
+
+/**
+ * The deck arrives as a squared-up pile, is riffled, and only then spreads
+ * into the fan — and it waits until the stage is actually looked at, because
+ * the render loop does not feed it frames before that.
+ *
+ * Its own page: the sections above scroll the whole document about, which
+ * would have played the opening long before this point.
+ */
+{
+  const p = await browser.newPage({ viewport: { width: 1100, height: 800 } });
+  await p.goto('http://localhost:4321/', { waitUntil: 'networkidle' });
+  await p.waitForTimeout(1500);
+  // Scrolled with evaluate, not a locator: locator.screenshot() scrolls the
+  // element into view itself, which would start the opening before the first
+  // frame could be captured.
+  await p.evaluate(() => document.querySelector('.stage--cards').scrollIntoView({ block: 'center' }));
+  const clip = await p.evaluate(() => {
+    const r = document.querySelector('.stage--cards canvas').getBoundingClientRect();
+    return { x: Math.round(r.x), y: Math.round(r.y), width: Math.round(r.width), height: Math.round(r.height) };
+  });
+
+  const shot = async () => (await p.screenshot({ clip })).toString('base64');
+  const diff = (a, b) =>
+    p.evaluate(async ([x, y]) => {
+      const load = async (v) => {
+        const i = new Image();
+        await new Promise((r) => { i.onload = r; i.src = 'data:image/png;base64,' + v; });
+        return i;
+      };
+      const [ia, ib] = [await load(x), await load(y)];
+      const g = document.createElement('canvas');
+      g.width = ia.width; g.height = ia.height;
+      const c = g.getContext('2d');
+      c.drawImage(ia, 0, 0);
+      const da = c.getImageData(0, 0, g.width, g.height).data;
+      c.clearRect(0, 0, g.width, g.height);
+      c.drawImage(ib, 0, 0);
+      const db = c.getImageData(0, 0, g.width, g.height).data;
+      let n = 0;
+      for (let i = 0; i < da.length; i += 4) {
+        if (Math.abs(da[i] - db[i]) + Math.abs(da[i+1] - db[i+1]) + Math.abs(da[i+2] - db[i+2]) > 45) n++;
+      }
+      return Math.round((1000 * n) / (da.length / 4)) / 10;
+    }, [a, b]);
+
+  const early = await shot();
+  await p.waitForTimeout(900);
+  const mid = await shot();
+  const moving = await diff(early, mid);
+  check('the deck plays an opening when the stage is reached', moving > 3, `${moving}% changed`);
+
+  // The opening is over five seconds of animation, and SwiftShader stretches
+  // that in wall-clock — wait generously rather than catching it mid-spread.
+  await p.waitForTimeout(16000);
+  const settledA = await shot();
+  await p.waitForTimeout(900);
+  const settledB = await shot();
+  const still = await diff(settledA, settledB);
+  check('and comes to rest when it is done', still < 0.5, `${still}% changed`);
+  await p.close();
 }
 
 /* --------------------------------------------------------- render cost */
@@ -802,7 +866,7 @@ check('red die matches attachment cap', ATTACH_FACES[pips[1] - 1] === capValues[
   const fresh = await browser.newPage({ viewport: { width: 1320, height: 1700 } });
   await fresh.goto('http://localhost:4321/', { waitUntil: 'networkidle' });
   check('draw is locked until a map is rolled',
-    await fresh.getByRole('button', { name: /Draw a card/ }).isDisabled());
+    await fresh.getByRole('button', { name: /Draw a keycard/ }).isDisabled());
   check('the empty state says why',
     /Roll a map in stage 2 first/.test(await fresh.locator('.keys__empty').textContent()));
   await fresh.close();
@@ -828,7 +892,7 @@ check('red die matches attachment cap', ATTACH_FACES[pips[1] - 1] === capValues[
     await page.waitForTimeout(600);
   }
   const mapName = (await page.locator('.reel__value').first().textContent()).trim();
-  const drawBtn = page.getByRole('button', { name: /Draw a card|Hand full|Drawing/ });
+  const drawBtn = page.getByRole('button', { name: /Draw a keycard|Hand full|Drawing/ });
   check('a map is on the reel', mapName !== '—', mapName);
   check('draw unlocks with a map on the reel', !(await drawBtn.isDisabled()), mapName);
 
@@ -838,16 +902,53 @@ check('red die matches attachment cap', ATTACH_FACES[pips[1] - 1] === capValues[
   // three — the hand cannot exceed the deck it is drawn from.
   check('hand limit is five, or the deck if it is smaller', limit >= 1 && limit <= 5, await counter());
 
+  const fanCanvas = page.locator('.stage--cards canvas').first();
+  let flatShot = null;
   for (let i = 0; i < limit; i++) {
     await drawBtn.click();
     await page.waitForFunction((n) => document.querySelectorAll('.keys__item').length === n, i + 1,
       { timeout: 20000 });
+    // The moment the last card lands, before the hand rises.
+    if (i === limit - 1) flatShot = (await fanCanvas.screenshot()).toString('base64');
   }
   const hand = (await page.locator('.keys__item').allTextContents()).map((t) => t.trim());
   check('drew a full hand', hand.length === limit, JSON.stringify(hand));
   check('no key drawn twice', new Set(hand).size === hand.length, JSON.stringify(hand));
   check('every key names a real room', hand.every((k) => k.length > 3), JSON.stringify(hand));
   check('cannot draw past the hand limit', await drawBtn.isDisabled(), await counter());
+
+  /**
+   * A full hand stands up square to the camera — flat on the felt the faces
+   * are read at the camera's own 50 degree slant, which is fine for one card
+   * and poor for five room names at once. Asserted as a change in what is
+   * actually rendered: the geometry lives inside the WebGL scene and cannot be
+   * queried from out here, but a row of cards rotating 50 degrees repaints a
+   * large part of the canvas.
+   */
+  await page.waitForTimeout(2200);
+  const standShot = (await fanCanvas.screenshot()).toString('base64');
+  const moved = await page.evaluate(async ([a, b]) => {
+    const load = async (x) => {
+      const i = new Image();
+      await new Promise((r) => { i.onload = r; i.src = 'data:image/png;base64,' + x; });
+      return i;
+    };
+    const [ia, ib] = [await load(a), await load(b)];
+    const g = document.createElement('canvas');
+    g.width = ia.width; g.height = ia.height;
+    const c = g.getContext('2d');
+    c.drawImage(ia, 0, 0);
+    const da = c.getImageData(0, 0, g.width, g.height).data;
+    c.clearRect(0, 0, g.width, g.height);
+    c.drawImage(ib, 0, 0, g.width, g.height);
+    const db = c.getImageData(0, 0, g.width, g.height).data;
+    let n = 0;
+    for (let i = 0; i < da.length; i += 4) {
+      if (Math.abs(da[i] - db[i]) + Math.abs(da[i+1] - db[i+1]) + Math.abs(da[i+2] - db[i+2]) > 45) n++;
+    }
+    return Math.round((1000 * n) / (da.length / 4)) / 10;
+  }, [flatShot, standShot]);
+  check('the finished hand turns to face the camera', moved > 5, `${moved}% of the canvas repainted`);
 
   await page.getByRole('button', { name: 'Put them back' }).click();
   await page.waitForTimeout(300);

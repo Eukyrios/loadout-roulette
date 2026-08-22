@@ -34,7 +34,11 @@ export function renderLoop(
 ): RenderLoop {
   let raf = 0;
   let running = false;
-  let onScreen = true; // assume visible until the observer says otherwise
+  // Starts false and is set by the observer's first callback, which fires as
+  // soon as it is attached. Assuming visible instead meant a stage far below
+  // the fold rendered a frame or two — and burned that much of any opening
+  // animation — before the observer got a chance to say otherwise.
+  let onScreen = false;
   let last = performance.now();
 
   const wanted = () => (onScreen && !document.hidden) || busy();
@@ -75,7 +79,6 @@ export function renderLoop(
   );
   io.observe(el);
   document.addEventListener('visibilitychange', sync);
-  start();
 
   return {
     wake: sync,

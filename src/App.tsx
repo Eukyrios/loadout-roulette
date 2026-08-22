@@ -439,7 +439,9 @@ export default function App() {
     }
     // Slide and flip sounds come from the fan itself, on the beat the card
     // actually moves, rather than being guessed at with timers out here.
-    await cardRef.current?.draw(keys.length, deck[index]);
+    // The fan cannot know the hand is full — the deck is three cards on the
+    // maps that run generic access cards — so the last draw is flagged here.
+    await cardRef.current?.draw(keys.length, deck[index], keys.length + 1 >= keyLimit);
 
     setKeys((p) => [...p, index]);
     setKeyBusy(false);
@@ -650,16 +652,17 @@ export default function App() {
             className="wheelcanvas"
             onSlide={() => sfx.cardSlide()}
             onFlip={() => sfx.cardFlip()}
+            onShuffle={() => sfx.cardShuffle()}
           />
           <div className="wheelglow" aria-hidden="true" />
         </div>
 
         <div className="stage__side">
-          <SectionTitle>4 · Draw your keys</SectionTitle>
+          <SectionTitle>4 · Draw your keycards</SectionTitle>
 
           <div className="keys">
             <div className="keys__head">
-              <span className="keys__label">Keys in hand</span>
+              <span className="keys__label">Keycards in hand</span>
               <span className="keys__count">
                 {keys.length} / {keyLimit || MAX_KEYS}
               </span>
@@ -697,7 +700,7 @@ export default function App() {
                   ? 'Roll a map in stage 2 first'
                   : keys.length >= keyLimit
                     ? 'That is the whole hand'
-                    : 'Take a card off the fan'
+                    : 'Take a keycard off the fan'
               }
             >
               {keyBusy
@@ -706,7 +709,7 @@ export default function App() {
                      length>=limit test called an untouched hand "full". */
                   mapId && keys.length >= keyLimit
                   ? 'Hand full'
-                  : 'Draw a card'}
+                  : 'Draw a keycard'}
             </button>
             <button
               type="button"
