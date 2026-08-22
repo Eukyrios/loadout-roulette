@@ -22,3 +22,12 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Scratch: working zips, a full copy of the project unpacked inside itself,
+# and one-off screenshots. Listed as much for oxlint as for git — it walks the
+# tree, and the minified bundles under _to_delete/ drown a lint run in
+# warnings about code nobody here wrote.
+_full.zip
+_to_delete/
+loadout-roulette/
+preview.png
