@@ -19,6 +19,16 @@ export interface LogEntry {
 
 export const CHANGELOG: LogEntry[] = [
   {
+    title: 'Maps and operators, both complete',
+    notes: [
+      'All sixteen operators and all seven maps now carry a picture. Those two columns had never had one.',
+      'The last three portraits arrived as screenshots on a card, so they were cut off their backgrounds, matted, and squared to the framing the other thirteen already shared \u2014 head at the same scale, shoulders leaving at the bottom edge.',
+      'Five map icons came off the world map screen. AZ3 was not among them and was cut from a video frame instead, at the framing the other five share: the same square, the same drop below the label, found by matching the supplied crops back against the frame rather than by eye.',
+      'Zero Dam at night has no marker of its own \u2014 it is the same dam after dark \u2014 so its icon is the day one graded down. Deliberate, and the one picture here that is not straight from the game.',
+      'Coverage is 147 of 182. What is left is guns and gear nobody publishes art for.',
+    ],
+  },
+  {
     title: 'Why no picture ever appeared',
     notes: [
       'Two faults, both real, neither of them the artwork. First: a reel picture was sized from its own dimensions, which an image does not have until it has loaded — so it laid out at zero by zero, never counted as near the viewport, and was never requested. Not a failed request; no request. It now fills the cell and letterboxes inside it, so the box exists from the first layout.',

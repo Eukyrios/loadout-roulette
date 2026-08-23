@@ -6,9 +6,9 @@
  * source changes its mind. Two things put files there:
  *
  *   124 downloaded by `npm run icons` from tools/gear-sources.json
- *   13 committed to the repo by hand, listed in tools/gear-local.json
+ *   23 committed to the repo by hand, listed in tools/gear-local.json
  *
- * 137 of the app's 182 entries have one. The rest fall back to their name,
+ * 147 of the app's 182 entries have one. The rest fall back to their name,
  * which is what every cell looked like before any of this — a designed
  * fallback, not a failure state.
  *
@@ -29,11 +29,13 @@ const WITH_ART = new Set([
   "assault-vest",
   "aug",
   "awm",
+  "az3",
   "basic-chest-rig",
   "basic-portable-chest-rig",
   "basic-stab-vest",
   "bizon",
   "boonie-hat",
+  "brakkesh",
   "camping-backpack",
   "car-15",
   "ci-19",
@@ -80,6 +82,7 @@ const WITH_ART = new Set([
   "hvk-qr-vest",
   "k416",
   "large-climbing-bag",
+  "layali-grove",
   "light-outdoor-backpack",
   "light-tactical-chest-rig",
   "light-vest",
@@ -101,8 +104,10 @@ const WITH_ART = new Set([
   "mhs-tactical-helmet",
   "mini-14",
   "mk-2-tactical-vest",
+  "morse",
   "motorcycle-vest",
   "mp5",
+  "n-two",
   "nox",
   "nylon-vest",
   "outdoor-baseball-cap",
@@ -130,6 +135,7 @@ const WITH_ART = new Set([
   "sks",
   "sling-bag",
   "smg-45",
+  "space-city",
   "sports-backpack",
   "sr-25",
   "sr-3m",
@@ -142,6 +148,7 @@ const WITH_ART = new Set([
   "tempest",
   "tg-h-vest",
   "tg-tactical-vest",
+  "tide-prison",
   "toxik",
   "travel-backpack",
   "uluru",
@@ -150,9 +157,12 @@ const WITH_ART = new Set([
   "uzi",
   "vector",
   "vityaz",
+  "vlinder",
   "vss",
   "vyron",
   "warrior-vest",
+  "zero-dam",
+  "zero-dam-night",
 ]);
 
 /** The picture for an entry, or null if there is none. */
