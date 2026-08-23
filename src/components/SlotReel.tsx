@@ -464,7 +464,10 @@ export function SlotReel({
                      is the live region, so repeating it here would read the
                      whole strip out twice. */
                   alt=""
-                  loading="lazy"
+                  /* Not lazy. A strip holds three cells at rest and the whole
+                     machine about twenty — small enough to just fetch, and
+                     deferring them means the winner of a spin arrives after
+                     the reel has stopped on it. */
                   decoding="async"
                   onError={() => item && missed(item.id)}
                 />

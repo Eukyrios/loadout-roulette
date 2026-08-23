@@ -11,7 +11,8 @@
     "smoke": "npm run build && node smoke.mjs",
     "verify:dice": "node verify-dice.mjs",
     "test": "node verify-dice.mjs && npm run smoke",
-    "icons": "node tools/fetch-images.mjs",
+    "icons": "node tools/fetch-images.mjs && node tools/shrink-images.mjs",
+    "shrink": "node tools/shrink-images.mjs",
     "gen:icons": "node tools/gen-icons.mjs"
   },
   "dependencies": {
@@ -27,6 +28,7 @@
     "@vitejs/plugin-react": "^6.0.4",
     "oxlint": "^1.75.0",
     "playwright": "^1.62.1",
+    "sharp": "^0.35.3",
     "typescript": "~6.0.2",
     "vite": "^8.2.0"
   },

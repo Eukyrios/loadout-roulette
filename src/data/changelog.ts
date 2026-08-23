@@ -19,6 +19,14 @@ export interface LogEntry {
 
 export const CHANGELOG: LogEntry[] = [
   {
+    title: 'Why no picture ever appeared',
+    notes: [
+      'Two faults, both real, neither of them the artwork. First: a reel picture was sized from its own dimensions, which an image does not have until it has loaded — so it laid out at zero by zero, never counted as near the viewport, and was never requested. Not a failed request; no request. It now fills the cell and letterboxes inside it, so the box exists from the first layout.',
+      'Second: the pictures were press-kit sized. The M4A1 render is 2000 by 1000 and 846 KB to fill a box 120 wide; a screenful came to about fifteen megabytes. npm run icons now shrinks everything it downloads to twice the size it is drawn at — the same four files went from 2.4 MB to 82 KB with no visible difference.',
+      'A cell whose picture genuinely will not load falls back to the name rather than sitting empty.',
+    ],
+  },
+  {
     title: 'Operator portraits',
     notes: [
       'Thirteen of the sixteen operators now have their portrait in the reel, supplied by hand rather than downloaded. Vlinder, N-Two and Morse still read as their name.',
