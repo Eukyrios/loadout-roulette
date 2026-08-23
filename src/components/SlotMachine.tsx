@@ -35,6 +35,14 @@ interface Props {
   onPickPreset: (id: string) => void;
   /** The tier bounds for a column, rendered under it. */
   rangeFor: (slotId: string) => React.ReactNode;
+  /**
+   * The settings panel, mounted inside the cabinet.
+   *
+   * Passed in rather than built here because the filter state belongs to the
+   * page; the machine only decides where it sits. And it sits in the machine
+   * because every filter left in it narrows these reels and nothing else.
+   */
+  settings?: React.ReactNode;
 }
 
 /**
@@ -62,6 +70,7 @@ export const SlotMachine = forwardRef<HTMLDivElement, Props>(function SlotMachin
     presetOptions,
     onPickPreset,
     rangeFor,
+    settings,
   },
   coinSlotRef,
 ) {
@@ -315,6 +324,8 @@ export const SlotMachine = forwardRef<HTMLDivElement, Props>(function SlotMachin
           </button>
         </div>
       </div>
+
+      {settings}
     </div>
   );
 });

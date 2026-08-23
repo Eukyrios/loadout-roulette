@@ -29,6 +29,7 @@ import * as THREE from 'three';
 import type { Attachment } from '../data/attachments';
 import { attachImageSrc } from '../data/attachments';
 import { frameCamera } from './frame';
+import { animSpeed } from '../engine/settings';
 import { renderLoop } from './renderLoop';
 
 export interface CapsuleHandle {
@@ -322,8 +323,6 @@ export const CapsuleMachine = forwardRef<CapsuleHandle, Props>(function CapsuleM
     const mount = mountRef.current;
     if (!mount) return;
 
-    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    const speed = reduced ? 3 : 1;
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -827,7 +826,7 @@ export const CapsuleMachine = forwardRef<CapsuleHandle, Props>(function CapsuleM
     const settling = () => focus !== (t >= T_DROP + T_SETTLE + T_RISE ? 1 : 0);
 
     const frame = (_now: number, dt: number) => {
-      const step = dt * speed;
+      const step = dt * animSpeed();
 
       if (t >= 0 && t < T_TOTAL) {
         t = Math.min(T_TOTAL, t + step);

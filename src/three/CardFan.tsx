@@ -22,6 +22,7 @@ import { keycardTier } from '../data/deltaforce';
 import { TIER_NAME, tierHex, tierRgba } from '../data/rarity';
 import { hashString } from '../engine/rng';
 import { frameCamera } from './frame';
+import { animMs } from '../engine/settings';
 import { renderLoop } from './renderLoop';
 
 export interface CardFanHandle {
@@ -235,7 +236,7 @@ export const CardFan = forwardRef<CardFanHandle, Props>(function CardFan(
     if (!mount) return;
 
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    const duration = reduced ? 420 : DRAW_MS;
+    const duration = animMs(reduced ? 420 : DRAW_MS);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));

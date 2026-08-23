@@ -20,6 +20,7 @@ import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
 import * as THREE from 'three';
 import { SQUAD_BY_ID, STICK_BUNDLE } from '../data/deltaforce';
 import { frameCamera } from './frame';
+import { animMs } from '../engine/settings';
 import { renderLoop } from './renderLoop';
 
 export interface StickHandle {
@@ -105,7 +106,7 @@ export const StickCup = forwardRef<StickHandle, Props>(function StickCup(
     if (!mount) return;
 
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    const duration = reduced ? 800 : DRAW_MS;
+    const duration = animMs(reduced ? 800 : DRAW_MS);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));

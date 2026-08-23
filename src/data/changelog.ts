@@ -19,11 +19,19 @@ export interface LogEntry {
 
 export const CHANGELOG: LogEntry[] = [
   {
-    title: 'Filters moved out of the settings panel',
+    title: 'A control bar, always on screen',
     notes: [
-      'Tier bounds now sit under the column they govern, instead of in a grid four sections down the settings panel.',
+      'Added a bar pinned to the bottom of the window: animation on or off, mute, and a volume slider. Remembered across visits.',
+      'With animation off a reel puts its answer straight up rather than running a shortened spin, and the 3D stages play their sequences faster than a frame.',
+      'Rolling the machine now hands its results to the stages below it, clearing anything that had been set by hand — so one pull sets up everything downstream, and any of it can still be overridden afterwards.',
+    ],
+  },
+  {
+    title: 'Filters folded into the machine',
+    notes: [
+      'The settings panel moved inside the cabinet itself, since every filter left in it narrows those reels and nothing else. It takes the machine\u2019s bottom edge as its own and drops its eyebrow — the crown above already says whose machine it is.',
+      'Tier bounds now sit above the column they govern, instead of in a grid four sections down a panel.',
       'Preset selection became a chip on the machine crown, next to the difficulty.',
-      'The settings panel keeps the pickers and the reset; everything else moved to where it applies.',
     ],
   },
   {

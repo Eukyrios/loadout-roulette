@@ -35,6 +35,7 @@ import * as THREE from 'three';
 import type { Ammo } from '../data/ammo';
 import { TIER_NAME, ammoTier, tierHex } from '../data/rarity';
 import { frameCamera } from './frame';
+import { animSpeed } from '../engine/settings';
 import { renderLoop } from './renderLoop';
 
 export interface AmmoWheelHandle {
@@ -209,8 +210,6 @@ export const AmmoWheel = forwardRef<AmmoWheelHandle, Props>(function AmmoWheel(
     const mount = mountRef.current;
     if (!mount) return;
 
-    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    const speed = reduced ? 3 : 1;
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -466,7 +465,7 @@ export const AmmoWheel = forwardRef<AmmoWheelHandle, Props>(function AmmoWheel(
 
     const frame = (_now: number, dt: number) => {
       if (running()) {
-        t = Math.min(SPIN_S, t + dt * speed);
+        t = Math.min(SPIN_S, t + dt * animSpeed());
         const u = clamp01(t / SPIN_S);
         let theta = from + (to - from) * spinEase(u);
 

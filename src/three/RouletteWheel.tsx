@@ -21,6 +21,7 @@ import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
 import * as THREE from 'three';
 import { POCKET_COLORS, WHEEL_POCKETS } from '../data/deltaforce';
 import { frameCamera } from './frame';
+import { animMs } from '../engine/settings';
 import { renderLoop } from './renderLoop';
 
 export interface RouletteHandle {
@@ -470,7 +471,7 @@ export const RouletteWheel = forwardRef<RouletteHandle, Props>(function Roulette
     let ballStart = 0;
     let lastArc = -1;
     let resolveSpin: (() => void) | null = null;
-    const duration = reduced ? 1400 : SPIN_MS;
+    const duration = animMs(reduced ? 1400 : SPIN_MS);
 
     /**
      * Camera pose, 0 = laid back and wide, 1 = overhead and closed in on the

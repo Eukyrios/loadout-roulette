@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { getSettings } from '../engine/settings';
 import type { Entry, SlotSpec } from '../data/types';
 
 /** Cell height in px. Must match `--cell` in index.css. */
@@ -42,9 +43,10 @@ interface Props {
    * The tier bounds for this column, rendered under it.
    *
    * These used to live in the settings panel, a long way from the reel they
-   * govern. Under the column you can see what you are narrowing while you
-   * narrow it. Columns with no tier filter — map, operator, weapon — pass
-   * nothing and get nothing.
+   * govern. Above the column they read as a constraint on what is about to
+   * come down it, rather than as a footnote under the result. Columns with no
+   * tier filter — map, operator, weapon — pass nothing and get nothing, and
+   * an empty box holds their heading in line with the rest.
    */
   range?: React.ReactNode;
 }
@@ -259,6 +261,30 @@ export function SlotReel({
       return;
     }
 
+    /*
+     * Animation off: put the answer up and hand straight on.
+     *
+     * Not a shortened spin. The strip's landing is driven by a CSS transition
+     * with a timed backstop behind it, and the backstop is deliberately
+     * generous — a transition that has not started yet must never be cut
+     * short. Shrinking the duration therefore does not make a pull quick; the
+     * backstop still governs, and seven columns of it add up to a wait. With
+     * animation off there is no transition to wait for, so there is nothing to
+     * shadow: show the result and end the spin on the next frame.
+     */
+    if (!getSettings().animate) {
+      setStrip([null, entry, null]);
+      setMoving(false);
+      setBlur(false);
+      setOffset(0);
+      const id = window.requestAnimationFrame(() => {
+        setFlash(true);
+        timers.current.push(window.setTimeout(() => setFlash(false), 260));
+        cb.current.onSpinEnd();
+      });
+      return () => window.cancelAnimationFrame(id);
+    }
+
     const prev = strip[1] ?? entry;
     const fillers = fillersFor(duration);
     const fill = Array.from({ length: fillers }, () => rand(pool) ?? null);
@@ -371,6 +397,8 @@ export function SlotReel({
         empty ? ' is-empty' : ''
       }${flash ? ' is-flash' : ''}${tier ? ` reel--t${tier}` : ''}`}
     >
+      {range}
+
       <div className="reel__head">
         <span className="reel__label">{slot.label}</span>
         <span className="reel__count">{empty ? '0' : pool.length}</span>
@@ -449,8 +477,6 @@ export function SlotReel({
       >
         Spin
       </button>
-
-      {range}
 
       {slot.hint && <p className="reel__hint">{slot.hint}</p>}
     </div>

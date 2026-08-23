@@ -11,6 +11,7 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
 import * as THREE from 'three';
 import { frameCamera } from './frame';
+import { animMs } from '../engine/settings';
 import { renderLoop } from './renderLoop';
 
 export interface DiceHandle {
@@ -214,7 +215,7 @@ export const DiceTray = forwardRef<DiceHandle, Props>(function DiceTray(
     if (!mount) return;
 
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    const duration = reduced ? 700 : ROLL_MS;
+    const duration = animMs(reduced ? 700 : ROLL_MS);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));

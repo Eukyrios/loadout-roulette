@@ -133,8 +133,9 @@ export function SettingsPanel({ open, onToggle, filters, onFilters, onReset }: P
   return (
     <section className={`panel${open ? ' is-open' : ''}`}>
       <button type="button" className="panel__toggle" onClick={onToggle} aria-expanded={open}>
+        {/* No eyebrow: this one lives inside the machine, under a crown that
+            already says Delta Force. */}
         <span className="panel__toggle-text">
-          <span className="secttl__eyebrow">Delta Force</span>
           <span className="panel__toggle-title">Settings</span>
         </span>
         <span className="panel__chevron">{open ? '▴' : '▾'}</span>

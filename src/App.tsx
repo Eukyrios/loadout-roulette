@@ -1,6 +1,7 @@
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Coin } from './components/Coin';
 import { DependencyChip, type DependencyOption } from './components/DependencyChip';
+import { ControlBar } from './components/ControlBar';
 import { RangeControl, SettingsPanel } from './components/SettingsPanel';
 import { SlotMachine } from './components/SlotMachine';
 import {
@@ -32,6 +33,7 @@ import { SLOTS } from './data/slots';
 import type { Entry, FilterState, Roll } from './data/types';
 import { defaultFilterState, rangeBounds, rangeKey, resolvePools } from './engine/filters';
 import { usePersisted } from './engine/persist';
+import { animMs } from './engine/settings';
 import { PRESETS, applyPreset } from './engine/presets';
 import { hashString, mulberry32, randomSeedCode } from './engine/rng';
 import {
@@ -116,7 +118,7 @@ const rarityFactor = (tier: number) =>
 
 /** How long a reel should spin for the item it is about to land on. */
 const spinTimeFor = (entry: Entry | null) =>
-  Math.round(SPIN_BASE * rarityFactor(Number(entry?.attrs?.tier ?? 1)));
+  Math.round(animMs(SPIN_BASE * rarityFactor(Number(entry?.attrs?.tier ?? 1))));
 
 function seedFromUrl(): string | null {
   if (typeof window === 'undefined') return null;
@@ -308,11 +310,30 @@ export default function App() {
 
   /* --------------------------------------------------------- the reels */
 
+  /**
+   * Hand a roll's results down to the stages that depend on them.
+   *
+   * The chips read their override first, so a value set by hand would sit in
+   * front of a freshly rolled one and the later stages would quietly still be
+   * working from the old choice. Rolling clears the overrides it supersedes,
+   * which is what makes "pull once and everything downstream is set" true —
+   * and nothing stops you setting any of them again straight afterwards.
+   */
+  const adoptRolled = useCallback((slotId?: string) => {
+    if (!slotId || slotId === 'weapon') {
+      setPickedWeapon(null);
+      // The wheel's caliber comes from the gun unless it was named directly.
+      setPickedCaliber(null);
+    }
+    if (!slotId || slotId === 'map') setPickedMap(null);
+  }, []);
+
   const pull = useCallback(() => {
     // A token UNLOCKS the machine, it does not buy one go. Charging per pull
     // meant every re-roll sent you back to the wheel for another coin, and the
     // per-column Spin buttons greyed out the instant you used one of them.
     if (credits === 0 || anySpinning) return;
+    adoptRolled();
 
     const nextSpins = { ...spins };
     for (const slot of SLOTS) {
@@ -367,12 +388,13 @@ export default function App() {
       if (u >= 1) return window.clearInterval(id);
       sfx.reelSpeed(1 - u * 0.75);
     }, 150);
-  }, [anySpinning, credits, filters, pools, rolls, rollsWithMode, seed, spins]);
+  }, [adoptRolled, anySpinning, credits, filters, pools, rolls, rollsWithMode, seed, spins]);
 
   const spinOne = useCallback(
     (slotId: string) => {
       // Free once the machine is loaded, exactly like the lever.
       if (credits === 0 || anySpinning || pools[slotId]?.length === 0) return;
+      adoptRolled(slotId);
       const nextSpin = (spins[slotId] ?? 0) + 1;
       const entry = rollSlot(slotId, seed, nextSpin, filters, rollsWithMode, rolls[slotId]?.entry);
       setSpins((p) => ({ ...p, [slotId]: nextSpin }));
@@ -382,7 +404,7 @@ export default function App() {
       fullPull.current = false;
       setSpinning((p) => ({ ...p, [slotId]: true }));
     },
-    [anySpinning, credits, filters, pools, rolls, rollsWithMode, seed, spins],
+    [adoptRolled, anySpinning, credits, filters, pools, rolls, rollsWithMode, seed, spins],
   );
 
   const nudge = useCallback(
@@ -590,7 +612,9 @@ export default function App() {
     (slotId: string) => {
       const slot = SLOTS.find((x) => x.id === slotId);
       const f = slot?.filters?.find((x) => x.kind === 'range');
-      if (!slot || !f || f.kind !== 'range') return null;
+      // An empty box, not nothing: the columns with no tier filter still need
+      // the same strip of height or their headings sit higher than the rest.
+      if (!slot || !f || f.kind !== 'range') return <div className="reel__range" />;
       const key = rangeKey(slot.id, f.attr);
       const bounds = rangeBounds(slot, f.attr, [f.min, f.max]);
       return (
@@ -826,7 +850,17 @@ export default function App() {
           onSpinEnd={onSpinEnd}
           onTick={onTick}
           onPull={pull}
+          settings={
+            <SettingsPanel
+              open={panelOpen}
+              onToggle={() => setPanelOpen((o) => !o)}
+              filters={filters}
+              onFilters={setFilters}
+              onReset={() => setFilters(defaultFilterState())}
+            />
+          }
         />
+
       </section>
 
       {/* -------------------------------------------------- stage three */}
@@ -1179,13 +1213,6 @@ export default function App() {
 
       {/* --------------------------------------------------- the build log */}
 
-      <SettingsPanel
-        open={panelOpen}
-        onToggle={() => setPanelOpen((o) => !o)}
-        filters={filters}
-        onFilters={setFilters}
-        onReset={() => setFilters(defaultFilterState())}
-      />
 
       {/* Same shell as the settings panel: a toggle bar that opens a body.
           It is reference material, so it is shut until asked for. */}
@@ -1223,6 +1250,8 @@ export default function App() {
           </div>
         )}
       </section>
+
+      <ControlBar />
 
       <footer className="ftr">
         <p>

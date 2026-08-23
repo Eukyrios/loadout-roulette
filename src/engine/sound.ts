@@ -10,6 +10,28 @@ let ctx: AudioContext | null = null;
 let master: GainNode | null = null;
 let noiseBuffer: AudioBuffer | null = null;
 
+/**
+ * Master level, 0 to 1, driven by the bar at the bottom of the page.
+ *
+ * Held here rather than read from the settings module so this file keeps no
+ * imports of its own — the settings module pushes the value in, including at
+ * startup, and zero is how muting is done. One gain node on the way out means
+ * a running loop changes level with everything else rather than carrying on at
+ * the volume it started at.
+ */
+let level = 0.85;
+
+export function setAudioLevel(v: number): void {
+  level = Math.max(0, Math.min(1, v));
+  if (master) {
+    try {
+      master.gain.value = level;
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
 function audio(): AudioContext | null {
   if (typeof window === 'undefined') return null;
   try {
@@ -20,7 +42,7 @@ function audio(): AudioContext | null {
       if (!Ctor) return null;
       ctx = new Ctor();
       master = ctx.createGain();
-      master.gain.value = 0.85;
+      master.gain.value = level;
       master.connect(ctx.destination);
     }
     // Browsers suspend the context until a user gesture; every entry point

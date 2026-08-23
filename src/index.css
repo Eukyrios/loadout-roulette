@@ -2224,11 +2224,14 @@ body {
   color: var(--line-2);
 }
 
-/* --- tier bounds, under the column they govern --------------------------- */
+/* --- tier bounds, above the column they govern --------------------------- */
+/* A fixed height on every column, filled or not, so the headings below stay
+   on one line across the cabinet. */
 .reel__range {
-  margin-top: 8px;
-  padding-top: 8px;
-  border-top: 1px solid var(--line);
+  min-height: 58px;
+  margin-bottom: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--line);
 }
 
 /* Stacked, not side by side. A column is about 230px wide and two steppers
@@ -2261,4 +2264,167 @@ body {
 .reel__range .btn--icon {
   padding: 2px 6px;
   font-size: 9px;
+}
+
+/* ----------------------------------------------------------- control bar */
+/* Pinned to the bottom of the window. The thing you want to turn down is
+   usually the thing playing right now, so it does not scroll away. */
+.bar {
+  position: fixed;
+  z-index: 60;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  border-top: 1px solid var(--line-2);
+  background: rgba(4, 9, 13, 0.94);
+  backdrop-filter: blur(8px);
+  box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.55);
+}
+
+.bar__inner {
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 7px 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.bar__brand {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  white-space: nowrap;
+}
+
+.bar__group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.bar__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 11px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: #05070a;
+  color: var(--text-faint);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.bar__btn.is-on {
+  border-color: rgba(var(--accent-rgb), 0.45);
+  color: var(--accent);
+}
+
+/* The state is on the dot as well as the colour, so it still reads when the
+   difference in hue does not. */
+.bar__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--line-2);
+}
+
+.bar__btn.is-on .bar__dot {
+  background: var(--accent);
+  box-shadow: 0 0 8px rgba(var(--accent-rgb), 0.8);
+}
+
+.bar__vol {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 11px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: #05070a;
+}
+
+.bar__volLabel {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.bar__vol input[type='range'] {
+  width: 110px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.bar__vol input[type='range']:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.bar__volValue {
+  min-width: 2.2ch;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text-dim);
+  text-align: right;
+}
+
+/* Room under the page so the bar never sits on top of the footer. */
+.app {
+  padding-bottom: 96px;
+}
+
+@media (max-width: 700px) {
+  .bar__brand {
+    display: none;
+  }
+
+  .bar__inner {
+    justify-content: center;
+    padding: 6px 10px;
+    gap: 8px;
+  }
+
+  .bar__volLabel {
+    display: none;
+  }
+
+  .bar__vol input[type='range'] {
+    width: 76px;
+  }
+}
+
+/* --- the settings panel, mounted inside the cabinet ---------------------- */
+/* It is part of the machine now, so it loses its own frame and shadow and
+   takes the machine's bottom edge as its own. */
+.machine > .panel {
+  margin: 0;
+  border: 0;
+  border-top: 1px solid var(--line);
+  border-radius: 0 0 10px 10px;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.32), rgba(0, 0, 0, 0.5));
+  box-shadow: none;
+}
+
+.machine > .panel .panel__toggle {
+  padding-top: 11px;
+  padding-bottom: 11px;
+}
+
+.machine > .panel .panel__toggle-title {
+  font-size: 13px;
+  font-family: var(--mono);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
 }
