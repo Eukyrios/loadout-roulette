@@ -799,6 +799,112 @@ export const AMMO: Ammo[] = [
   high: null,
   hasArt: false,
  },
+
+ /* ------------------------------------------------------------------------
+  * Added from a recording of the live auction house, August 2026.
+  *
+  * These nine were on the market and not in the data. Their PEN VALUES ARE
+  * INFERRED, not measured: the auction card states no penetration, only a
+  * rarity colour, so each is placed at the level its colour puts it in its
+  * own caliber's ladder. Read by subtracting the card behind the chip and
+  * classifying what tint is left; the same method reproduces the grade of
+  * every round already in this file, pen-0 special cases included. Replace with real figures if a source publishes them.
+  *
+  * No picture for any of them, on purpose. Every round in the game draws the
+  * SAME generic ammunition box on its auction card \u2014 three rounds of one
+  * caliber side by side are the same crate under a different rarity glow \u2014
+  * so there is nothing per-round to mirror. The drawn cartridge says more.
+  * --------------------------------------------------------------------- */
+ {
+  id: "7-62x51mm-ultra-nosler",
+  name: "7.62x51mm Ultra Nosler",
+  caliber: "7.62x51mm",
+  pen: 2,
+  price: null,
+  low: null,
+  high: null,
+  hasArt: false,
+ },
+ {
+  id: "12-gauge-85mm-buckshot",
+  name: "12 Gauge 8.5mm Buckshot",
+  caliber: "12 Gauge",
+  pen: 3,
+  price: null,
+  low: null,
+  high: null,
+  hasArt: false,
+ },
+ {
+  id: "12-gauge-dragons-breath",
+  name: "12 Gauge Dragon's Breath",
+  caliber: "12 Gauge",
+  pen: 4,
+  price: null,
+  low: null,
+  high: null,
+  hasArt: false,
+ },
+ {
+  id: "45-acp-ct",
+  name: ".45 ACP CT",
+  caliber: ".45 ACP",
+  pen: 4,
+  price: null,
+  low: null,
+  high: null,
+  hasArt: false,
+ },
+ {
+  id: "5-8x42mm-dbp10-p",
+  name: "5.8x42mm DBP10 +P",
+  caliber: "5.8x42mm",
+  pen: 4,
+  price: null,
+  low: null,
+  high: null,
+  hasArt: false,
+ },
+ {
+  id: "5-8x42mm-dvc12-p",
+  name: "5.8x42mm DVC12 +P",
+  caliber: "5.8x42mm",
+  pen: 5,
+  price: null,
+  low: null,
+  high: null,
+  hasArt: false,
+ },
+ {
+  id: "arrow-fiberglass-willow",
+  name: "Fiberglass Willow Arrow",
+  caliber: "Arrow",
+  pen: 3,
+  price: null,
+  low: null,
+  high: null,
+  hasArt: false,
+ },
+ {
+  id: "arrow-carbon-bone-piercer",
+  name: "Carbon Fiber Bone-Piercer Arrow",
+  caliber: "Arrow",
+  pen: 4,
+  price: null,
+  low: null,
+  high: null,
+  hasArt: false,
+ },
+ {
+  id: "arrow-carbon-armor-piercing",
+  name: "Carbon Fiber Armor-Piercing Arrow",
+  caliber: "Arrow",
+  pen: 5,
+  price: null,
+  low: null,
+  high: null,
+  hasArt: false,
+ },
 ];
 
 /** Weapon id -> the caliber it chambers. Null means it fires no cartridge. */
@@ -861,7 +967,8 @@ export const WEAPON_CALIBER: Record<string, string | null> = {
   "m1014": "12 Gauge",
   "s12k": "12 Gauge",
   "fs-12": "12 Gauge",
-  "compound-bow": null,
+  // Arrows are ammunition on the auction house like anything else.
+  "compound-bow": "Arrow",
   "g17": "9x19mm",
   "g18": "9x19mm",
   "93r": "9x19mm",

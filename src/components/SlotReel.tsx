@@ -126,6 +126,8 @@ export function SlotReel({
   const [moveMs, setMoveMs] = useState(0);
   const [blur, setBlur] = useState(false);
   const [flash, setFlash] = useState(false);
+  /** Tier of whatever is crossing the payline mid-spin. See the spin effect. */
+  const [liveTier, setLiveTier] = useState(0);
 
   // Re-render this column when any picture anywhere turns out to be missing.
   const [, bump] = useState(0);
@@ -175,7 +177,7 @@ export function SlotReel({
   // lever is pulled, so colouring the column from it straight away would
   // announce the rarity before the reel had landed — the one thing the spin
   // exists to keep you waiting for.
-  const tier = spinning ? 0 : Number(entry?.attrs?.tier ?? 0);
+  const tier = spinning ? liveTier : Number(entry?.attrs?.tier ?? 0);
 
   /* -- static rest state ------------------------------------------------- */
   const [above, below] = neighbours(pool, entry);
@@ -319,10 +321,20 @@ export function SlotReel({
 
     const prev = strip[1] ?? entry;
     const fillers = fillersFor(duration);
-    const fill = Array.from({ length: fillers }, () => rand(pool) ?? null);
-    const tail = [rand(pool) ?? null, rand(pool) ?? null];
-    const next = [rand(pool) ?? null, prev, ...fill, entry, ...tail];
-    const targetIndex = 2 + fillers;
+    /*
+     * The three cells the reel STOPS on are the real ones, not fillers.
+     *
+     * The winner used to arrive between two random picks, and the moment the
+     * spin ended those two were swapped for the pool's actual neighbours — so
+     * the column visibly reshuffled itself a beat after landing, which read as
+     * the machine changing its mind. Seating `above` and `below` around the
+     * winner while the strip is built means what flies into place is what
+     * stays, and the nudge arrows still step to the item shown, because those
+     * ARE the pool neighbours.
+     */
+    const fill = Array.from({ length: Math.max(0, fillers - 1) }, () => rand(pool) ?? null);
+    const next = [rand(pool) ?? null, prev, ...fill, above, entry, below, rand(pool) ?? null];
+    const targetIndex = 3 + fill.length;
 
     setStrip(next);
     setOffset(0);
@@ -334,6 +346,39 @@ export function SlotReel({
       setMoving(true);
       setOffset(-(targetIndex - 1) * CELL);
     });
+
+    /*
+     * Colour the bay from whatever is crossing the payline right now.
+     *
+     * The tier used to be withheld for the whole spin so the reveal was not
+     * given away early. Holding it neutral also made the column look inert
+     * while a hundred items flew past it. Reading the strip's live position
+     * instead gives the bay the colour of the item actually in the window, so
+     * it flickers through the grades and settles on the winner's — and it
+     * still gives nothing away, because until it stops, the colour showing is
+     * some other item's.
+     *
+     * The position has to be read back off the element: the travel is a CSS
+     * transition, so React never sees the intermediate offsets.
+     */
+    let liveRaf = 0;
+    let lastIdx = -1;
+    let sampling = true;
+    const sampleTier = () => {
+      const el = stripRef.current;
+      if (el) {
+        const t = getComputedStyle(el).transform;
+        // "none" before the transition starts; a matrix once it is running.
+        const y = t && t !== 'none' ? new DOMMatrixReadOnly(t).m42 : 0;
+        const idx = Math.round(-y / CELL) + 1;
+        if (idx !== lastIdx) {
+          lastIdx = idx;
+          setLiveTier(Number(next[idx]?.attrs?.tier ?? 0));
+        }
+      }
+      liveRaf = sampling ? requestAnimationFrame(sampleTier) : 0;
+    };
+    liveRaf = requestAnimationFrame(sampleTier);
 
     // Ratchet clicks, one per cell boundary. The strip decelerates, so the
     // clicks have to as well: invert the easing to find when each cell passes.
@@ -364,6 +409,8 @@ export function SlotReel({
     const land = () => {
       if (landed) return;
       landed = true;
+      sampling = false;
+      cancelAnimationFrame(liveRaf);
       setMoving(false);
       setFlash(true);
       timers.current.push(window.setTimeout(() => setFlash(false), 520));
@@ -408,6 +455,8 @@ export function SlotReel({
     }
 
     return () => {
+      sampling = false;
+      cancelAnimationFrame(liveRaf);
       el?.removeEventListener('transitionstart', onStart);
       el?.removeEventListener('transitionend', onEnd);
       clearTimers();

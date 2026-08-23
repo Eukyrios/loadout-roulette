@@ -19,6 +19,22 @@ export interface LogEntry {
 
 export const CHANGELOG: LogEntry[] = [
   {
+    title: 'Every weapon has its picture',
+    notes: [
+      'All 66 guns now show their own artwork, cut from item cards. So does the Nylon Chest Rig, which was not in the catalogue at all \u2014 and the .357 Revolver, whose download had quietly failed months ago.',
+      'The cut-outs were redone with a better matte. The first pass trimmed the card down to a fixed window before cutting, which sliced the bottom off every pistol grip, and left a slab of card behind the bow and the revolver. It now reads the whole card and drops the leftover furniture afterwards by discarding every island that is not the weapon.',
+      'Nine rounds of ammunition were on the market and not in the data, including three arrows \u2014 so the Compound Bow chambers a caliber now instead of nothing.',
+      'Ammunition grades were checked against the market rather than trusted: the rarity on every round already recorded came back exactly right, pen-0 oddities included.',
+    ],
+  },
+  {
+    title: 'The reels behave while they turn',
+    notes: [
+      'A column takes the colour of whatever is crossing its window mid-spin, instead of staying grey until it stops. It gives nothing away \u2014 until the reel halts, the colour showing belongs to some other item \u2014 and the machine stops looking inert while a hundred things fly past.',
+      'A reel no longer reshuffles itself after landing. The two items either side of the winner used to be random until the moment it stopped, then swap for the real neighbours a beat later, which read as the machine changing its mind. They are now seated around the winner before the strip even starts moving.',
+    ],
+  },
+  {
     title: 'Maps and operators, both complete',
     notes: [
       'All sixteen operators and all seven maps now carry a picture. Those two columns had never had one.',

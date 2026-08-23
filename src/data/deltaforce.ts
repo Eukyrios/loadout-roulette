@@ -379,6 +379,9 @@ export const RIGS: Entry[] = [
   g('light-tactical-chest-rig', 'Light Tactical Chest Rig', 1),
   g('basic-chest-rig', 'Basic Chest Rig', 1),
   g('nylon-sling-bag', 'Nylon Sling Bag', 2),
+  // Newer than the tier listings the rest of this section was checked against;
+  // graded from its own item card, which shows green.
+  g('nylon-chest-rig', 'Nylon Chest Rig', 2),
   g('hk3-portable-chest-rig', 'HK3 Portable Chest Rig', 2),
   g('d01-light-chest-rig', 'D01 Light Chest Rig', 2),
   g('universal-tactical-chest-rig', 'Universal Tactical Chest Rig', 2),

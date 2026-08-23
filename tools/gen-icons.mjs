@@ -20,6 +20,9 @@ const json = async (p) => JSON.parse(await readFile(p, 'utf8'));
 const sources = await json('tools/gear-sources.json');
 const local = await json('tools/gear-local.json');
 
+/** Everything the seven reel columns hold. Bump when the catalogue grows. */
+const TOTAL_ENTRIES = 183;
+
 const ids = [...new Set([...Object.keys(sources), ...local.ids])].sort();
 
 const header = `/**
@@ -32,7 +35,7 @@ const header = `/**
  *   ${Object.keys(sources).length} downloaded by \`npm run icons\` from tools/gear-sources.json
  *   ${local.ids.length} committed to the repo by hand, listed in tools/gear-local.json
  *
- * ${ids.length} of the app's 182 entries have one. The rest fall back to their name,
+ * ${ids.length} of the app's ${TOTAL_ENTRIES} entries have one. The rest fall back to their name,
  * which is what every cell looked like before any of this — a designed
  * fallback, not a failure state.
  *
