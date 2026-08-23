@@ -793,7 +793,7 @@ export const AMMO: Ammo[] = [
   id: "45-70-govt-rn",
   name: "45-70 Govt RN",
   caliber: ".45-70 Government",
-  pen: null,
+  pen: 3,
   price: null,
   low: null,
   high: null,

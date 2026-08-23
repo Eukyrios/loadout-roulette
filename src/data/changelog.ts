@@ -19,6 +19,16 @@ export interface LogEntry {
 
 export const CHANGELOG: LogEntry[] = [
   {
+    title: 'Every ammunition grade checked against the market',
+    notes: [
+      'All 76 rounds that appear on the auction house were compared against the grade this app gives them, read off the rarity tint on each market card. 76 of 76 agree.',
+      'One correction fell out of it: 45-70 Govt RN had no published penetration at all and was defaulting to gray. Its card is blue, so it is graded 3 now \u2014 the market answered a question no source had.',
+      'The two long arrow names had to be read twice. The reader sampled the plain card next to a label to work out what tint the label was carrying, and on a name that runs the width of its chip that probe lands inside the chip itself \u2014 so both arrows measured as having no tint at all and came out gray. Sampling from below the label instead put them right: gold and purple, matching what the data already said.',
+      'Ten rounds never appear on the market and could not be checked this way: the .50 BMG and .338 Lapua loads, .50 AE AP and 12 Gauge Slug GT among them. Their grades are the ones already recorded.',
+      'A reel picture is capped against the cell HEIGHT now instead of its width. A column is 132px on a desktop and the full screen on a phone, so the same rifle drew at 292px there against 120px here \u2014 more than twice the size, on the smaller screen.',
+    ],
+  },
+  {
     title: 'Tighter stages, and a picture filter',
     notes: [
       'Every stage except the slot machine is about a third quicker at its written length \u2014 the reels were the one that read right, and the rest were pacing themselves against nothing. The wheel, the dice, the cards, the cup, the capsule machine and the ammunition wheel all came down together, so the slider still moves them all in step.',

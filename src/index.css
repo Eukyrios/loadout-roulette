@@ -1022,6 +1022,17 @@ body {
 .cell__icon {
   width: 100%;
   height: 100%;
+  /*
+   * Capped against the cell's HEIGHT, not its width.
+   *
+   * A column is 132px on a desktop and the full screen on a phone, so a
+   * width-relative picture more than doubled in size on mobile: a rifle drew
+   * at 292px there against 120px here, which is what "way too zoomed in"
+   * looks like. Height is the one dimension that does not change between the
+   * two layouts, so sizing off it keeps a gun the same size on both and just
+   * leaves more air around it on the wider column.
+   */
+  max-width: calc(var(--cell) * 2);
   object-fit: contain;
   filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.65));
 }
