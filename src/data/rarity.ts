@@ -50,7 +50,7 @@ export function tierNum(tier: number | null | undefined): number {
 /**
  * A round's rarity grade.
  *
- * Checked against deltaforceitems.com's per-item Grade field rather than
+ * Checked against an external data source's per-item Grade field rather than
  * assumed. The rule that came back:
  *
  *  - For penetration levels 1-6 the grade IS the penetration level. M995 is

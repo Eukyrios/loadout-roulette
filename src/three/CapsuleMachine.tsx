@@ -27,7 +27,7 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
 import * as THREE from 'three';
 import type { Attachment } from '../data/attachments';
-import { attachImageSources } from '../data/attachments';
+import { attachImageSrc } from '../data/attachments';
 import { frameCamera } from './frame';
 import { renderLoop } from './renderLoop';
 
@@ -688,31 +688,25 @@ export const CapsuleMachine = forwardRef<CapsuleHandle, Props>(function CapsuleM
             mesh.position.set(0, OPEN_Y, OPEN_Z);
             scene.add(mesh);
 
-            const sources = attachImageSources(a);
+            const src = attachImageSrc(a);
             const img = new Image();
             img.decoding = 'async';
             img.alt = '';
             img.style.cssText =
               'position:absolute;opacity:0;object-fit:contain;' +
               'filter:drop-shadow(0 2px 6px rgba(0,0,0,.6));will-change:transform,opacity';
-            // No crossOrigin: nothing here is read back into a canvas, so
-            // asking for CORS would only give the host a way to refuse. No
-            // Referer either — sending one is what hotlink protection keys on,
-            // and this needs nothing from the host but the bytes.
-            img.referrerPolicy = 'no-referrer';
-            // Walk the source list until one loads. When they all fail the
-            // element is hidden and the slot glyph drawn into the card texture
-            // is what shows through.
-            let next = 0;
-            const advance = () => {
-              if (next >= sources.length) {
+            // The mirror in public/att/ is the only source. It is same-origin,
+            // so nothing can refuse it — and when it has not been made yet the
+            // element hides itself and the slot glyph drawn into the card
+            // texture is what shows through.
+            if (src) {
+              img.onerror = () => {
                 img.style.display = 'none';
-                return;
-              }
-              img.src = sources[next++];
-            };
-            img.onerror = advance;
-            advance();
+              };
+              img.src = src;
+            } else {
+              img.style.display = 'none';
+            }
             art.appendChild(img);
 
             cards.push({ mesh, tex, mat, img });

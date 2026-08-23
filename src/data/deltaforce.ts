@@ -554,13 +554,12 @@ KEYCARDS_BY_MAP['zero-dam-night'] = KEYCARDS_BY_MAP['zero-dam'];
 /**
  * Keycard rarity, on the same 1-6 ladder as every other item.
  *
- * Sourced from deltaforceitems.com, which publishes a Grade field per key;
- * deltaforcetools.gg has no key pages at all. Keyed by room name because the
- * names are unique across maps.
+ * Taken from an external data source that publishes a Grade field per key.
+ * Keyed by room name, because the names are unique across maps.
  *
- * Two entries are spelled differently there than here and are mapped by hand:
- * "New Tower of Babel Power Access" is their "New Tower of Babel Power Supply
- * Access Card", and "Ocean Monitoring Hall" is their "Ocean Surveillance
+ * Two entries are spelled differently upstream and are mapped by hand: "New
+ * Tower of Babel Power Access" is listed there as "New Tower of Babel Power
+ * Supply Access Card", and "Ocean Monitoring Hall" as "Ocean Surveillance
  * Room". The Tide Prison and AZ3 access cards are not graded anywhere, so they
  * are absent and the card is drawn ungraded rather than given a made-up tier.
  */

@@ -365,20 +365,26 @@ export const sfx = {
     tone(1320, 0.26, 0.03, 'sine', 0.3);
   },
 
-  /* --- darts --- */
-  /** The throw: air, not impact. Short and downward. */
-  dartThrow: () => {
-    sweep(1600, 380, 0.16, 0.022, 'sine');
-    knock(2400, 0.05, 0.02, 9);
+  /* --- the ammunition wheel --- */
+  /** The wheel being set going: a shove, then bearings. */
+  ammoSpin: () => {
+    sweep(180, 620, 0.3, 0.04, 'sawtooth');
+    knock(520, 0.09, 0.05, 5);
   },
-  /** The point going into cork — a dull thud with a tiny metallic ring. */
-  dartHit: () => {
-    knock(240, 0.1, 0.14, 4);
-    knock(1300, 0.05, 0.05, 12);
-    tone(2100, 0.09, 0.02, 'triangle', 0.01);
+  /**
+   * One wedge passing the pawl.
+   *
+   * `speed` runs 1 down to 0 as the wheel slows, and both the pitch and the
+   * length follow it, so the ticks stretch out and drop as it dies away
+   * instead of machine-gunning at one note.
+   */
+  ammoTick: (speed = 1) => {
+    const s = Math.max(0.05, Math.min(1, speed));
+    knock(1500 + 900 * s, 0.03 + 0.03 * (1 - s), 0.035 + 0.05 * (1 - s), 16);
   },
-  /** The flight still quivering a moment after it lands. */
-  dartWobble: () => {
-    for (let i = 0; i < 4; i++) knock(3000 + Math.random() * 1200, 0.03, 0.012, 20);
+  /** It stops on one. */
+  ammoLand: () => {
+    knock(300, 0.1, 0.12, 5);
+    [523.25, 783.99, 1046.5].forEach((f, i) => tone(f, 0.26, 0.045, 'triangle', 0.04 + i * 0.06));
   },
 };

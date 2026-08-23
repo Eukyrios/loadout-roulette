@@ -644,7 +644,12 @@ export const RouletteWheel = forwardRef<RouletteHandle, Props>(function Roulette
             tilt: CAM_TILT_ROLL + (CAM_TILT_LANDED - CAM_TILT_ROLL) * e,
             width: viewW,
             height: viewH,
-            margin: 1.03,
+            // 1.03 cropped the rim at the top whenever the panel went wide and
+            // short (measured: the wheel filled 97% of a 300px-tall canvas between
+            // roughly 560 and 820 CSS pixels of page width, and the top of the bowl
+            // was cut). The extra breathing room costs a little size and keeps the
+            // whole wheel on screen at every width.
+            margin: 1.1,
           },
         );
       }

@@ -3,7 +3,7 @@
  *
  * Run by .github/workflows/prices.yml on a schedule. The app then fetches its
  * own static prices.json — same origin, so no CORS, and no server to run.
- * Fetching deltaforcetools.gg straight from the browser is not an option: it
+ * Fetching the source straight from the browser is not an option: it
  * serves HTML rather than JSON and sends no CORS headers, so a page on
  * github.io cannot read it.
  *

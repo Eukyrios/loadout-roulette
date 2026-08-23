@@ -15,20 +15,15 @@ import {
   keycardsFor,
 } from './data/deltaforce';
 import { ATTACH_BY_CAT, ATTACH_SLOTS, type Attachment } from './data/attachments';
-import {
-  WEAPON_CALIBER,
-  OFF_WIKI_CALIBERS,
-  type Ammo,
-  ammoForWeapon,
-  ammoImageSources,
-} from './data/ammo';
+import { AMMO_WITH_ART, type Ammo, ammoImageSrc } from './data/ammo';
+import { CHANGELOG } from './data/changelog';
 import { TIER_NAME, ammoTier } from './data/rarity';
 import { SLOTS } from './data/slots';
 import type { Entry, FilterState, Roll } from './data/types';
 import { defaultFilterState, resolvePools } from './engine/filters';
 import { usePersisted } from './engine/persist';
 import { PRESETS, applyPreset } from './engine/presets';
-import { randomSeedCode } from './engine/rng';
+import { hashString, mulberry32, randomSeedCode } from './engine/rng';
 import {
   emptySlots,
   rollAll,
@@ -46,17 +41,39 @@ import { DiceTray, type DiceHandle } from './three/DiceTray';
 import { StickCup, type StickHandle } from './three/StickCup';
 import { CardFan, type CardFanHandle } from './three/CardFan';
 import { CapsuleMachine, type CapsuleHandle } from './three/CapsuleMachine';
-import { DartBoard, type DartHandle } from './three/DartBoard';
+import { AmmoWheel, type AmmoWheelHandle } from './three/AmmoWheel';
 
 /**
- * Is the dart board finished enough to show?
+ * Is the ammunition wheel finished enough to show?
  *
- * No — the board does not centre reliably at every panel size and the round
- * pictures load intermittently, so stage five is boarded up rather than
- * shipped half working. Everything behind it still builds and still runs; flip
- * this to true and the stage comes straight back, no other change needed.
+ * Yes, with one thing deliberately left out: it does not check whether the
+ * round fits the gun. Set this to false to board the stage up again behind an
+ * under-construction notice — nothing else has to change.
  */
-const DART_READY = false;
+const DART_READY = true;
+
+/** How many rounds go on the wheel. Six wedges is the most that stays legible. */
+const DART_WEDGES = 6;
+
+/**
+ * Deal a wheel: six rounds from the whole catalogue, hardest first.
+ *
+ * Fit is ignored on purpose for now — the wheel is a lucky dip, not a
+ * gunsmith. The caliber data is all still there (WEAPON_CALIBER and
+ * ammoForWeapon in data/ammo.ts) for when that comes back. Only rounds with a
+ * mirrored picture are eligible, because a wheel is mostly pictures.
+ *
+ * Seeded off the spin count, so a shared link deals the same wheel.
+ */
+function dealWheel(seed: string, spin: number): Ammo[] {
+  const rng = mulberry32(hashString(`${seed}:ammowheel:${spin}`));
+  const pool = [...AMMO_WITH_ART];
+  for (let i = pool.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [pool[i], pool[j]] = [pool[j], pool[i]];
+  }
+  return pool.slice(0, DART_WEDGES).sort((a, b) => (b.pen ?? -1) - (a.pen ?? -1));
+}
 
 /**
  * Base spin length for one reel. Reels run STRICTLY ONE AT A TIME, left to
@@ -138,9 +155,10 @@ export default function App() {
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [capsuleBusy, setCapsuleBusy] = useState(false);
 
-  // --- ammunition, picked by throwing a dart -------------------------------
+  // --- ammunition, picked by spinning the wheel ----------------------------
   const [ammo, setAmmo] = useState<Ammo | null>(null);
   const [dartBusy, setDartBusy] = useState(false);
+  const [rounds, setRounds] = useState<Ammo[]>(() => dealWheel(seed, 0));
 
   // --- squad size, drawn from the stick cup --------------------------------
   const [squad, setSquad] = useState<Entry | null>(null);
@@ -152,7 +170,7 @@ export default function App() {
   const stickRef = useRef<StickHandle>(null);
   const cardRef = useRef<CardFanHandle>(null);
   const capsuleRef = useRef<CapsuleHandle>(null);
-  const dartRef = useRef<DartHandle>(null);
+  const dartRef = useRef<AmmoWheelHandle>(null);
   const wheelRef = useRef<RouletteHandle>(null);
   const coinSlotRef = useRef<HTMLDivElement>(null);
   /** Columns still waiting to spin, in order. Drained by onSpinEnd. */
@@ -518,33 +536,34 @@ export default function App() {
     setCapsuleBusy(false);
   }, [capsuleBusy, seed, spins, weapon]);
 
-  /* --- the dart board ------------------------------------------------------ */
+  /* --- the ammunition wheel ------------------------------------------------ */
 
-  /** The rolled gun's caliber, and every round it can chamber. */
-  const caliber = weapon ? (WEAPON_CALIBER[weapon.id] ?? null) : null;
-  const rounds = useMemo(() => (weapon ? ammoForWeapon(weapon.id) : []), [weapon]);
-
-  // A new gun means a new board, and the old dart comes out with it.
-  useEffect(() => {
-    setAmmo(null);
-    dartRef.current?.setBoard(rounds, caliber);
-  }, [weapon?.id, rounds, caliber]);
-
-  const throwDart = useCallback(async () => {
-    if (dartBusy || rounds.length === 0) return;
+  const spinAmmo = useCallback(async () => {
+    if (dartBusy) return;
     setDartBusy(true);
     const n = (spins.__dart ?? 0) + 1;
+
+    // A fresh wheel is dealt as the spin STARTS, not when the last one
+    // finished. Redealing on landing wiped the winner off the wheel the
+    // instant it was decided, which made the result look like it had not
+    // happened.
+    const next = dealWheel(seed, n);
+    setRounds(next);
+    dartRef.current?.setRounds(next);
+
+    const idx = rollDart(seed, n, next.length);
+    await dartRef.current?.spinTo(next, idx);
+
+    setAmmo(next[idx] ?? null);
     setSpins((p) => ({ ...p, __dart: n }));
-
-    const idx = rollDart(seed, n, rounds.length);
-    // The board is rebuilt first: a re-throw at a gun whose board is already
-    // up is a no-op, but coming here straight from a re-roll is not.
-    dartRef.current?.setBoard(rounds, caliber);
-    await dartRef.current?.throwAt(rounds, idx);
-
-    setAmmo(rounds[idx] ?? null);
     setDartBusy(false);
-  }, [dartBusy, rounds, caliber, seed, spins]);
+  }, [dartBusy, seed, spins]);
+
+  // The opening wheel, once. Everything after that is driven by the spin.
+  useEffect(() => {
+    dartRef.current?.setRounds(rounds);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const drawStick = useCallback(async () => {
     if (stickBusy) return;
@@ -800,43 +819,37 @@ export default function App() {
       {DART_READY ? (
         <section className="stage stage--darts">
           <div className="stage__wheel stage__wheel--darts">
-            <DartBoard
+            <AmmoWheel
               ref={dartRef}
               className="wheelcanvas"
-              onThrow={() => sfx.dartThrow()}
-              onHit={() => sfx.dartHit()}
-              onWobble={() => sfx.dartWobble()}
+              onSpin={() => sfx.ammoSpin()}
+              onTick={(v) => sfx.ammoTick(v)}
+              onLand={() => sfx.ammoLand()}
             />
             <div className="wheelglow" aria-hidden="true" />
           </div>
 
           <div className="stage__side">
-            <SectionTitle>5 · Throw for ammunition</SectionTitle>
+            <SectionTitle>5 · Spin for ammunition</SectionTitle>
 
             <div className="dart">
               <div className="dart__head">
-                <span className="dart__label">{caliber ?? 'Caliber'}</span>
-                <span className="dart__for">{weapon ? weapon.name : 'No weapon'}</span>
+                <span className="dart__label">On the wheel</span>
+                <span className="dart__for">{rounds.length} rounds</span>
               </div>
 
               {ammo ? (
                 <div className="ammo">
-                  {ammoImageSources(ammo).length > 0 ? (
+                  {ammoImageSrc(ammo) ? (
                     <img
                       className="ammo__img"
-                      src={ammoImageSources(ammo)[0]}
+                      src={ammoImageSrc(ammo) ?? undefined}
                       alt=""
-                      referrerPolicy="no-referrer"
+                      /* The mirror is the only source. If it has not been made
+                         the element hides itself and the drawn cartridge on the
+                         board is what you have — better than a broken icon. */
                       onError={(e) => {
-                        // Same three-source walk the attachment cards do: mirror,
-                        // then the CDN, then the site's own image optimiser.
-                        const el = e.currentTarget;
-                        const list = ammoImageSources(ammo);
-                        const at = Number(el.dataset.at ?? 0) + 1;
-                        if (at < list.length) {
-                          el.dataset.at = String(at);
-                          el.src = list[at];
-                        } else el.style.display = 'none';
+                        e.currentTarget.style.display = 'none';
                       }}
                     />
                   ) : null}
@@ -850,60 +863,35 @@ export default function App() {
                   </div>
                 </div>
               ) : (
-                <p className="dart__empty">
-                  {!weapon
-                    ? 'Roll a weapon in stage 2 first'
-                    : rounds.length === 0
-                      ? 'This weapon fires no cartridge'
-                      : 'Nothing thrown yet'}
-                </p>
+                <p className="dart__empty">Nothing spun yet</p>
               )}
             </div>
 
             <p className="stage__hint">
-              {rounds.length > 0
-                ? `The board is built from the ${caliber} the ${weapon?.name} chambers, so every wedge on it is a round that gun can actually take.`
-                : weapon
-                  ? `The ${weapon.name} has no cartridge to throw for — it shoots arrows.`
-                  : 'The board is built from your gun\u2019s caliber, so it needs one rolled first.'}
+              Six rounds, dealt from every caliber in the game. Spin it and the pawl
+              at the top picks one. It does not check whether the round fits what you
+              rolled — that is coming; for now it is a lucky dip and a 12 Gauge slug
+              for your MP5 is fair game. Spinning again deals a new wheel.
             </p>
-
-            {caliber && OFF_WIKI_CALIBERS.has(caliber) ? (
-              <p className="wip">
-                <strong className="wip__tag">Partial data</strong>
-                Delta Force Tools has no page for {caliber}, so these round names came
-                from elsewhere and there is no published price or picture for them. The
-                names and penetration levels are right; the board just has less to show.
-              </p>
-            ) : null}
 
             <button
               type="button"
               className="btn btn--primary"
-              onClick={() => void throwDart()}
+              onClick={() => void spinAmmo()}
               disabled={dartBusy || rounds.length === 0}
-              title={
-                rounds.length > 0
-                  ? 'Throw a dart at the board'
-                  : weapon
-                    ? 'This weapon fires no cartridge'
-                    : 'Roll a weapon in stage 2 first'
-              }
+              title="Spin the wheel"
             >
-              {dartBusy ? 'In the air…' : 'Throw the dart'}
+              {dartBusy ? 'Spinning…' : 'Spin the wheel'}
             </button>
           </div>
         </section>
       ) : (
         <section className="stage stage--darts stage--barred">
           <div className="stage__side">
-            <SectionTitle>5 · Throw for ammunition</SectionTitle>
+            <SectionTitle>5 · Spin for ammunition</SectionTitle>
             <p className="wip wip--big">
               <strong className="wip__tag">Under construction</strong>
-              The dart board that picks your ammunition is boarded up for now. The
-              board does not sit right in its panel at every window size, and the
-              round pictures will not load reliably, so rather than leave a stage
-              that half works it is switched off until both are fixed. Nothing else
+              The wheel that picks your ammunition is boarded up for now. Nothing else
               on the page is affected.
             </p>
           </div>
@@ -1040,6 +1028,8 @@ export default function App() {
         </div>
       </section>
 
+      {/* --------------------------------------------------- the build log */}
+
       <SettingsPanel
         open={panelOpen}
         onToggle={() => setPanelOpen((o) => !o)}
@@ -1048,6 +1038,39 @@ export default function App() {
         onPreset={(id) => setFilters(applyPreset(id))}
         onReset={() => setFilters(defaultFilterState())}
       />
+
+      <section className="stage stage--log">
+        <details className="stage__side stage__side--wide log__box">
+          {/* Shut to start with: it is reference, not part of the run. */}
+          <summary className="log__toggle">
+            <span className="secttl__eyebrow">Delta Force</span>
+            <span className="log__toggleTitle">Build log</span>
+            <span className="log__count">{CHANGELOG.length} entries</span>
+          </summary>
+          <p className="stage__hint">
+            Every round of work on this, newest first — including the things that were
+            wrong and got fixed. Game data comes from external data sources: public
+            community databases. The app never talks to them while you use it; item
+            pictures are mirrored into the project first.
+          </p>
+          <ol className="log">
+            {CHANGELOG.map((e, i) => (
+              <li key={e.title} className={`log__item${i === 0 ? ' log__item--now' : ''}`}>
+                <div className="log__head">
+                  <h3 className="log__title">{e.title}</h3>
+                  {i === 0 ? <span className="log__badge">Current</span> : null}
+                </div>
+                <p className="log__summary">{e.summary}</p>
+                <ul className="log__notes">
+                  {e.notes.map((n) => (
+                    <li key={n}>{n}</li>
+                  ))}
+                </ul>
+              </li>
+            ))}
+          </ol>
+        </details>
+      </section>
 
       <footer className="ftr">
         <p>

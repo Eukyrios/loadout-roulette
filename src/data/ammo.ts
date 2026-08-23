@@ -1,24 +1,27 @@
 /**
  * Ammunition, and which gun can chamber it.
  *
- * Two sources, and the difference matters:
+ * Compiled from external data sources — public community databases for this
+ * game — and checked round by round rather than assumed. Two of those sources
+ * disagree about nothing important, but they do not cover the same ground:
  *
- *  - The thirteen calibers deltaforcetools.gg's wiki covers were read off its
- *    weapon and ammo pages: penetration level, market price and picture all
- *    come from there.
- *  - Seven calibers are used by guns that wiki has no page for at all
- *    (.300 Blackout, 4.6x30mm, 12.7x55mm, .50 AE, .50 BMG, .338 Lapua Magnum,
- *    .45-70 Government). Their round NAMES were found elsewhere; no price or
- *    picture is published for them, so those fields are null and the board
- *    shows the round without one rather than inventing a figure.
+ *  - Thirteen calibers are fully documented, so those rounds carry a
+ *    penetration level, a market price and a picture.
+ *  - Seven more are used by guns that the fuller source has no entry for at
+ *    all (.300 Blackout, 4.6x30mm, 12.7x55mm, .50 AE, .50 BMG, .338 Lapua
+ *    Magnum, .45-70 Government). Their round NAMES were found elsewhere; no
+ *    price is published for them, so that field is null rather than invented.
  *
- * Pen levels run 0-7. Zero is the RIP/expanding rounds, which do more damage
- * to flesh and almost nothing to armour; seven is the anti-materiel stuff.
+ * Pen levels run 0-7. Zero is the RIP and expanding rounds, which do more
+ * damage to flesh and almost nothing to armour; seven is the anti-materiel
+ * stuff.
  *
- * WEAPON_CALIBER is the part that makes the dart board honest — the board is
- * built from the rolled gun's own caliber, so a round it cannot chamber is
- * never on it. The Compound Bow is the one weapon with no caliber: it shoots
- * arrows, and the board says so instead of pretending otherwise.
+ * PICTURES ARE LOCAL ONLY. The upstream URLs live in tools/ammo-sources.json,
+ * which the mirroring script reads at build time and the browser never sees —
+ * so the app makes no request to anyone else's server, and nothing breaks the
+ * day that server decides it would rather not serve a hotlink. `hasArt` says
+ * whether a mirrored file should exist; where it does not, the card draws a
+ * cartridge instead of showing a hole.
  */
 
 export interface Ammo {
@@ -27,12 +30,12 @@ export interface Ammo {
   caliber: string;
   /** Armour penetration level, 0-7. Null where no source states it. */
   pen: number | null;
-  /** Market price at the time of scraping. Null for the off-wiki calibers. */
+  /** Market price at the time of collection. Null where none is published. */
   price: number | null;
   low: number | null;
   high: number | null;
-  /** Upstream CDN picture, or null where none is published. */
-  img: string | null;
+  /** True when a mirrored picture exists for this round in public/ammo/. */
+  hasArt: boolean;
 }
 
 export const AMMO: Ammo[] = [
@@ -44,7 +47,7 @@ export const AMMO: Ammo[] = [
   price: 5057,
   low: 4732,
   high: 5837,
-  img: "https://static.deltaforcetools.gg/images/556x45mmM995_262733a9.png",
+  hasArt: true,
  },
  {
   id: "5-56x45mm-m855a1",
@@ -54,7 +57,7 @@ export const AMMO: Ammo[] = [
   price: 861,
   low: 441,
   high: 1041,
-  img: "https://static.deltaforcetools.gg/images/556x45mmM855A1_9746dea4.png",
+  hasArt: true,
  },
  {
   id: "5-56x45mm-m855",
@@ -64,7 +67,7 @@ export const AMMO: Ammo[] = [
   price: 766,
   low: 361,
   high: 781,
-  img: "https://static.deltaforcetools.gg/images/556x45mmM855_2bf32d59.png",
+  hasArt: true,
  },
  {
   id: "5-56x45mm-fmj",
@@ -74,7 +77,7 @@ export const AMMO: Ammo[] = [
   price: 104,
   low: 104,
   high: 104,
-  img: "https://static.deltaforcetools.gg/images/556x45mmFMJ_dd1b2a86.png",
+  hasArt: true,
  },
  {
   id: "5-56x45mm-rrlp",
@@ -84,7 +87,7 @@ export const AMMO: Ammo[] = [
   price: 50,
   low: 50,
   high: 50,
-  img: "https://static.deltaforcetools.gg/images/556x45mmRRLP_89d7ab81.png",
+  hasArt: true,
  },
  {
   id: "5-45x39mm-bs",
@@ -94,7 +97,7 @@ export const AMMO: Ammo[] = [
   price: 5244,
   low: 4749,
   high: 6344,
-  img: "https://static.deltaforcetools.gg/images/545x39mmBS_90ec6dd7.png",
+  hasArt: true,
  },
  {
   id: "5-45x39mm-bt",
@@ -104,7 +107,7 @@ export const AMMO: Ammo[] = [
   price: 1941,
   low: 1266,
   high: 1966,
-  img: "https://static.deltaforcetools.gg/images/545x39mmBT_6695f4bf.png",
+  hasArt: true,
  },
  {
   id: "5-45x39mm-ps",
@@ -114,7 +117,7 @@ export const AMMO: Ammo[] = [
   price: 849,
   low: 564,
   high: 849,
-  img: "https://static.deltaforcetools.gg/images/545x39mmPS_92865036.png",
+  hasArt: true,
  },
  {
   id: "5-45x39mm-t",
@@ -124,7 +127,7 @@ export const AMMO: Ammo[] = [
   price: 110,
   low: 110,
   high: 110,
-  img: "https://static.deltaforcetools.gg/images/545x39mmT_9253f4e5.png",
+  hasArt: true,
  },
  {
   id: "5-45x39mm-prs",
@@ -134,7 +137,7 @@ export const AMMO: Ammo[] = [
   price: 50,
   low: 50,
   high: 50,
-  img: "https://static.deltaforcetools.gg/images/545x39mmPRS_0742a109.png",
+  hasArt: true,
  },
  {
   id: "7-62x39mm-ap",
@@ -144,7 +147,7 @@ export const AMMO: Ammo[] = [
   price: 5721,
   low: 5046,
   high: 9921,
-  img: "https://static.deltaforcetools.gg/images/762x39mmAP_de35ac1a.png",
+  hasArt: true,
  },
  {
   id: "7-62x39mm-bp",
@@ -154,7 +157,7 @@ export const AMMO: Ammo[] = [
   price: 1611,
   low: 946,
   high: 1891,
-  img: "https://static.deltaforcetools.gg/images/762x39mmBP_b202b7e8.png",
+  hasArt: true,
  },
  {
   id: "7-62x39mm-ps",
@@ -164,7 +167,7 @@ export const AMMO: Ammo[] = [
   price: 791,
   low: 596,
   high: 881,
-  img: "https://static.deltaforcetools.gg/images/762x39mmPS_811a054b.png",
+  hasArt: true,
  },
  {
   id: "7-62x39mm-t45m",
@@ -174,7 +177,7 @@ export const AMMO: Ammo[] = [
   price: 120,
   low: 120,
   high: 126,
-  img: "https://static.deltaforcetools.gg/images/762x39mmT45M_11e48c8a.png",
+  hasArt: true,
  },
  {
   id: "7-62x39mm-lp",
@@ -184,7 +187,7 @@ export const AMMO: Ammo[] = [
   price: 58,
   low: 58,
   high: 58,
-  img: "https://static.deltaforcetools.gg/images/762x39mmLP_1acb573a.png",
+  hasArt: true,
  },
  {
   id: "5-8x42mm-dvc12",
@@ -194,7 +197,7 @@ export const AMMO: Ammo[] = [
   price: 5845,
   low: 5145,
   high: 7735,
-  img: "https://static.deltaforcetools.gg/images/58x42mmDVC12_14ff0c51.png",
+  hasArt: true,
  },
  {
   id: "5-8x42mm-dbp10",
@@ -204,7 +207,7 @@ export const AMMO: Ammo[] = [
   price: 2023,
   low: 1218,
   high: 2128,
-  img: "https://static.deltaforcetools.gg/images/58x42mmDBP10_2a69a6c5.png",
+  hasArt: true,
  },
  {
   id: "5-8x42mm-dvp88",
@@ -214,7 +217,7 @@ export const AMMO: Ammo[] = [
   price: 778,
   low: 583,
   high: 883,
-  img: "https://static.deltaforcetools.gg/images/58x42mmDVP88_8cf74960.png",
+  hasArt: true,
  },
  {
   id: "5-8x42mm-dbp87",
@@ -224,7 +227,7 @@ export const AMMO: Ammo[] = [
   price: 99,
   low: 99,
   high: 139,
-  img: "https://static.deltaforcetools.gg/images/58x42mmDBP87_dca23989.png",
+  hasArt: true,
  },
  {
   id: "9x39mm-bp",
@@ -234,7 +237,7 @@ export const AMMO: Ammo[] = [
   price: 5264,
   low: 4159,
   high: 7019,
-  img: "https://static.deltaforcetools.gg/images/9x39mmBP_14af5af1.png",
+  hasArt: true,
  },
  {
   id: "9x39mm-sp6",
@@ -244,7 +247,7 @@ export const AMMO: Ammo[] = [
   price: 1841,
   low: 1041,
   high: 2041,
-  img: "https://static.deltaforcetools.gg/images/9x39mmSP6_d4860955.png",
+  hasArt: true,
  },
  {
   id: "9x39mm-sp5",
@@ -254,7 +257,7 @@ export const AMMO: Ammo[] = [
   price: 744,
   low: 744,
   high: 744,
-  img: "https://static.deltaforcetools.gg/images/9x39mmSP5_505b1adc.png",
+  hasArt: true,
  },
  {
   id: "7-62x51mm-m62",
@@ -264,7 +267,7 @@ export const AMMO: Ammo[] = [
   price: 6867,
   low: 4767,
   high: 7567,
-  img: "https://static.deltaforcetools.gg/images/762x51mmM62_f28bacf3.png",
+  hasArt: true,
  },
  {
   id: "7-62x51mm-m80",
@@ -274,7 +277,7 @@ export const AMMO: Ammo[] = [
   price: 1378,
   low: 698,
   high: 1618,
-  img: "https://static.deltaforcetools.gg/images/762x51mmM80_0d395c73.png",
+  hasArt: true,
  },
  {
   id: "7-62x51mm-bpz",
@@ -284,7 +287,7 @@ export const AMMO: Ammo[] = [
   price: 828,
   low: 668,
   high: 948,
-  img: "https://static.deltaforcetools.gg/images/762x51mmBPZ_0ea51a4b.png",
+  hasArt: true,
  },
  {
   id: "6-8x51mm-hybrid",
@@ -294,7 +297,7 @@ export const AMMO: Ammo[] = [
   price: 5929,
   low: 5074,
   high: 6119,
-  img: "https://static.deltaforcetools.gg/images/68x51mmHybrid_e7940362.png",
+  hasArt: true,
  },
  {
   id: "6-8x51mm-fmj",
@@ -304,7 +307,7 @@ export const AMMO: Ammo[] = [
   price: 1889,
   low: 1214,
   high: 2069,
-  img: "https://static.deltaforcetools.gg/images/68x51mmFMJ_7e7d5780.png",
+  hasArt: true,
  },
  {
   id: "9x19mm-pbp",
@@ -314,7 +317,7 @@ export const AMMO: Ammo[] = [
   price: 1786,
   low: 1156,
   high: 1876,
-  img: "https://static.deltaforcetools.gg/images/9x19mmPBP_f758d511.png",
+  hasArt: true,
  },
  {
   id: "9x19mm-ap6-3",
@@ -324,7 +327,7 @@ export const AMMO: Ammo[] = [
   price: 531,
   low: 246,
   high: 591,
-  img: "https://static.deltaforcetools.gg/images/9x19mmAP63_586c8e33.png",
+  hasArt: true,
  },
  {
   id: "9x19mm-pst",
@@ -334,7 +337,7 @@ export const AMMO: Ammo[] = [
   price: 103,
   low: 103,
   high: 108,
-  img: "https://static.deltaforcetools.gg/images/9x19mmPst_0bc22498.png",
+  hasArt: true,
  },
  {
   id: "9x19mm-pso",
@@ -344,7 +347,7 @@ export const AMMO: Ammo[] = [
   price: 30,
   low: 30,
   high: 32,
-  img: "https://static.deltaforcetools.gg/images/9x19mmPSO_12bc1a9e.png",
+  hasArt: true,
  },
  {
   id: "9x19mm-rip",
@@ -354,7 +357,7 @@ export const AMMO: Ammo[] = [
   price: 678,
   low: 498,
   high: 768,
-  img: "https://static.deltaforcetools.gg/images/9x19mmRIP_88654734.png",
+  hasArt: true,
  },
  {
   id: "45-acp-ap",
@@ -364,7 +367,7 @@ export const AMMO: Ammo[] = [
   price: 1680,
   low: 1085,
   high: 2030,
-  img: "https://static.deltaforcetools.gg/images/45ACPAP_43a0c57f.png",
+  hasArt: true,
  },
  {
   id: "45-acp-fmj",
@@ -374,7 +377,7 @@ export const AMMO: Ammo[] = [
   price: 686,
   low: 551,
   high: 821,
-  img: "https://static.deltaforcetools.gg/images/45ACPFMJ_1b15124b.png",
+  hasArt: true,
  },
  {
   id: "45-acp-jhp",
@@ -384,7 +387,7 @@ export const AMMO: Ammo[] = [
   price: 121,
   low: 116,
   high: 121,
-  img: "https://static.deltaforcetools.gg/images/45ACPJHP_4a162879.png",
+  hasArt: true,
  },
  {
   id: "45-acp-hs",
@@ -394,7 +397,7 @@ export const AMMO: Ammo[] = [
   price: 58,
   low: 42,
   high: 63,
-  img: "https://static.deltaforcetools.gg/images/45ACPHS_a7acf327.png",
+  hasArt: true,
  },
  {
   id: "45-acp-rip",
@@ -404,7 +407,7 @@ export const AMMO: Ammo[] = [
   price: 725,
   low: 515,
   high: 890,
-  img: "https://static.deltaforcetools.gg/images/45ACPRIP_18279b59.png",
+  hasArt: true,
  },
  {
   id: "5-7x28mm-ss190",
@@ -414,7 +417,7 @@ export const AMMO: Ammo[] = [
   price: 5352,
   low: 4832,
   high: 7562,
-  img: "https://static.deltaforcetools.gg/images/57x28mmSS190_3e39d458.png",
+  hasArt: true,
  },
  {
   id: "5-7x28mm-ss193",
@@ -424,7 +427,7 @@ export const AMMO: Ammo[] = [
   price: 1863,
   low: 1053,
   high: 2043,
-  img: "https://static.deltaforcetools.gg/images/57x28mmSS193_c664a63d.png",
+  hasArt: true,
  },
  {
   id: "5-7x28mm-l191",
@@ -434,7 +437,7 @@ export const AMMO: Ammo[] = [
   price: 750,
   low: 555,
   high: 885,
-  img: "https://static.deltaforcetools.gg/images/57x28mmL191_f3192e14.png",
+  hasArt: true,
  },
  {
   id: "5-7x28mm-ss197sr",
@@ -444,7 +447,7 @@ export const AMMO: Ammo[] = [
   price: 112,
   low: 103,
   high: 112,
-  img: "https://static.deltaforcetools.gg/images/57x28mmSS197SR_a83c5b02.png",
+  hasArt: true,
  },
  {
   id: "5-7x28mm-ss198lf",
@@ -454,7 +457,7 @@ export const AMMO: Ammo[] = [
   price: 53,
   low: 36,
   high: 58,
-  img: "https://static.deltaforcetools.gg/images/57x28mmSS198LF_41bca846.png",
+  hasArt: true,
  },
  {
   id: "5-7x28mm-r37-f",
@@ -464,7 +467,7 @@ export const AMMO: Ammo[] = [
   price: 517,
   low: 317,
   high: 617,
-  img: "https://static.deltaforcetools.gg/images/57x28mmR37F_c801efaf.png",
+  hasArt: true,
  },
  {
   id: "7-62x54r-bt",
@@ -474,7 +477,7 @@ export const AMMO: Ammo[] = [
   price: 6214,
   low: 5374,
   high: 6934,
-  img: "https://static.deltaforcetools.gg/images/762x54RBT_0c3cd2c5.png",
+  hasArt: true,
  },
  {
   id: "7-62x54r-lps",
@@ -484,7 +487,7 @@ export const AMMO: Ammo[] = [
   price: 2290,
   low: 1170,
   high: 2370,
-  img: "https://static.deltaforcetools.gg/images/762x54RLPS_ec8981e5.png",
+  hasArt: true,
  },
  {
   id: "7-62x54r-t46m",
@@ -494,7 +497,7 @@ export const AMMO: Ammo[] = [
   price: 762,
   low: 502,
   high: 862,
-  img: "https://static.deltaforcetools.gg/images/762x54RT46M_32a8eb61.png",
+  hasArt: true,
  },
  {
   id: "12-gauge-slug-ap-20",
@@ -504,7 +507,7 @@ export const AMMO: Ammo[] = [
   price: 471,
   low: 391,
   high: 1111,
-  img: "https://static.deltaforcetools.gg/images/12GaugeSlugAP20_207974f2.png",
+  hasArt: true,
  },
  {
   id: "12-gauge-flechette",
@@ -514,7 +517,7 @@ export const AMMO: Ammo[] = [
   price: 388,
   low: 358,
   high: 583,
-  img: "https://static.deltaforcetools.gg/images/12GaugeFlechette_e41744f5.png",
+  hasArt: true,
  },
  {
   id: "12-gauge-slug-ftx",
@@ -524,7 +527,7 @@ export const AMMO: Ammo[] = [
   price: 519,
   low: 459,
   high: 519,
-  img: "https://static.deltaforcetools.gg/images/12GaugeSlugFTX_4bdeee58.png",
+  hasArt: true,
  },
  {
   id: "12-gauge-slug-gt",
@@ -534,7 +537,7 @@ export const AMMO: Ammo[] = [
   price: 62,
   low: 62,
   high: 62,
-  img: "https://static.deltaforcetools.gg/images/12GaugeSlugGT_50a63bde.png",
+  hasArt: true,
  },
  {
   id: "12-gauge-slug-rip",
@@ -544,7 +547,7 @@ export const AMMO: Ammo[] = [
   price: 173,
   low: 133,
   high: 208,
-  img: "https://static.deltaforcetools.gg/images/12GaugeSlugRIP_b12c4b3d.png",
+  hasArt: true,
  },
  {
   id: "357-magnum-fmj",
@@ -554,7 +557,7 @@ export const AMMO: Ammo[] = [
   price: 950,
   low: 680,
   high: 3740,
-  img: "https://static.deltaforcetools.gg/images/357MagnumFMJ_04ca6854.png",
+  hasArt: true,
  },
  {
   id: "357-magnum-jhp",
@@ -564,7 +567,7 @@ export const AMMO: Ammo[] = [
   price: 859,
   low: 519,
   high: 1119,
-  img: "https://static.deltaforcetools.gg/images/357MagnumJHP_107d2bad.png",
+  hasArt: true,
  },
  {
   id: "357-magnum-hp",
@@ -574,7 +577,7 @@ export const AMMO: Ammo[] = [
   price: 222,
   low: 162,
   high: 232,
-  img: "https://static.deltaforcetools.gg/images/357MagnumHP_d09d1130.png",
+  hasArt: true,
  },
  {
   id: "357-magnum-snake-shot",
@@ -584,7 +587,7 @@ export const AMMO: Ammo[] = [
   price: 313,
   low: 208,
   high: 383,
-  img: "https://static.deltaforcetools.gg/images/357MagnumSnakeShot_adadf8ad.png",
+  hasArt: true,
  },
  {
   id: "300-blk-tac-tx",
@@ -594,7 +597,7 @@ export const AMMO: Ammo[] = [
   price: null,
   low: null,
   high: null,
-  img: null,
+  hasArt: false,
  },
  {
   id: "300blk-bcp-sub",
@@ -604,7 +607,7 @@ export const AMMO: Ammo[] = [
   price: null,
   low: null,
   high: null,
-  img: null,
+  hasArt: false,
  },
  {
   id: "300blk-v-sub",
@@ -614,7 +617,7 @@ export const AMMO: Ammo[] = [
   price: null,
   low: null,
   high: null,
-  img: null,
+  hasArt: false,
  },
  {
   id: "4-6x30mm-ap-sx",
@@ -624,7 +627,7 @@ export const AMMO: Ammo[] = [
   price: null,
   low: null,
   high: null,
-  img: null,
+  hasArt: false,
  },
  {
   id: "4-6x30mm-fmj-sx",
@@ -634,7 +637,7 @@ export const AMMO: Ammo[] = [
   price: null,
   low: null,
   high: null,
-  img: null,
+  hasArt: false,
  },
  {
   id: "4-6x30mm-subsonic-sx",
@@ -644,7 +647,7 @@ export const AMMO: Ammo[] = [
   price: null,
   low: null,
   high: null,
-  img: null,
+  hasArt: false,
  },
  {
   id: "12-7x55mm-ps12b",
@@ -654,7 +657,7 @@ export const AMMO: Ammo[] = [
   price: null,
   low: null,
   high: null,
-  img: null,
+  hasArt: false,
  },
  {
   id: "12-7x55mm-pd12",
@@ -664,7 +667,7 @@ export const AMMO: Ammo[] = [
   price: null,
   low: null,
   high: null,
-  img: null,
+  hasArt: true,
  },
  {
   id: "12-7x55mm-ps12",
@@ -674,7 +677,7 @@ export const AMMO: Ammo[] = [
   price: null,
   low: null,
   high: null,
-  img: null,
+  hasArt: false,
  },
  {
   id: "12-7x55mm-ps12a",
@@ -684,7 +687,7 @@ export const AMMO: Ammo[] = [
   price: null,
   low: null,
   high: null,
-  img: null,
+  hasArt: false,
  },
  {
   id: "50-ae-ap",
@@ -694,7 +697,7 @@ export const AMMO: Ammo[] = [
   price: null,
   low: null,
   high: null,
-  img: null,
+  hasArt: false,
  },
  {
   id: "50-ae-fmj",
@@ -704,7 +707,7 @@ export const AMMO: Ammo[] = [
   price: null,
   low: null,
   high: null,
-  img: null,
+  hasArt: true,
  },
  {
   id: "50-ae-jhp",
@@ -714,7 +717,7 @@ export const AMMO: Ammo[] = [
   price: null,
   low: null,
   high: null,
-  img: null,
+  hasArt: true,
  },
  {
   id: "50-ae-hp",
@@ -724,7 +727,7 @@ export const AMMO: Ammo[] = [
   price: null,
   low: null,
   high: null,
-  img: null,
+  hasArt: true,
  },
  {
   id: "50-bmg-m903-slap",
@@ -734,7 +737,7 @@ export const AMMO: Ammo[] = [
   price: null,
   low: null,
   high: null,
-  img: null,
+  hasArt: false,
  },
  {
   id: "50-bmg-m3-k-0",
@@ -744,7 +747,7 @@ export const AMMO: Ammo[] = [
   price: null,
   low: null,
   high: null,
-  img: null,
+  hasArt: false,
  },
  {
   id: "50-bmg-m10-razor",
@@ -754,7 +757,7 @@ export const AMMO: Ammo[] = [
   price: null,
   low: null,
   high: null,
-  img: null,
+  hasArt: false,
  },
  {
   id: "338-lap-mag-ap",
@@ -764,7 +767,7 @@ export const AMMO: Ammo[] = [
   price: null,
   low: null,
   high: null,
-  img: null,
+  hasArt: false,
  },
  {
   id: "45-70-govt-ftx",
@@ -774,7 +777,7 @@ export const AMMO: Ammo[] = [
   price: null,
   low: null,
   high: null,
-  img: null,
+  hasArt: false,
  },
  {
   id: "45-70-govt-fmj",
@@ -784,7 +787,7 @@ export const AMMO: Ammo[] = [
   price: null,
   low: null,
   high: null,
-  img: null,
+  hasArt: false,
  },
  {
   id: "45-70-govt-rn",
@@ -794,7 +797,7 @@ export const AMMO: Ammo[] = [
   price: null,
   low: null,
   high: null,
-  img: null,
+  hasArt: false,
  },
 ];
 
@@ -868,7 +871,7 @@ export const WEAPON_CALIBER: Record<string, string | null> = {
   "m1911": ".45 ACP",
 };
 
-/** Calibers whose round list came from outside the wiki — no prices, no art. */
+/** Calibers whose round list came from a thinner source — no prices, no art. */
 export const OFF_WIKI_CALIBERS = new Set([
   ".300 Blackout",
   "4.6x30mm",
@@ -899,16 +902,22 @@ export function ammoForWeapon(weaponId: string): Ammo[] {
 }
 
 /**
- * Where to look for a round's picture, best first — the same three-source
- * walk the attachment cards use, and for the same reason: the mirror is the
- * only one nothing can refuse, the raw CDN file can be hotlink-blocked, and
- * the site's own image optimiser usually is not.
+ * Rounds that have a mirrored picture, hardest-hitting first.
+ *
+ * The dart board draws from this rather than from everything: a board is
+ * mostly pictures, and a wedge with no art on it looks like a mistake even
+ * when it is honest about why.
  */
-export const ammoImageSources = (a: Ammo): string[] =>
-  a.img
-    ? [
-        `ammo/${a.id}.png`,
-        a.img,
-        `https://deltaforcetools.gg/_next/image?url=${encodeURIComponent(a.img)}&w=384&q=75`,
-      ]
-    : [];
+export const AMMO_WITH_ART: Ammo[] = AMMO.filter((a) => a.hasArt).sort(
+  (a, b) => (b.pen ?? -1) - (a.pen ?? -1),
+);
+
+/**
+ * Where a round's picture lives.
+ *
+ * One place: the mirror in public/ammo/, filled by tools/fetch-images.mjs.
+ * Nothing is hotlinked, so there is no second source to fall back to and no
+ * third-party request to fail — if the mirror has not been made the drawn
+ * cartridge stands in.
+ */
+export const ammoImageSrc = (a: Ammo): string | null => (a.hasArt ? `ammo/${a.id}.png` : null);

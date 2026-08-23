@@ -19,7 +19,7 @@
 
 import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
 import * as THREE from 'three';
-import type { Ammo } from '../data/ammo';
+import { type Ammo, ammoImageSrc } from '../data/ammo';
 import { TIER_NAME, ammoTier, tierHex } from '../data/rarity';
 import { frameCamera } from './frame';
 import { renderLoop } from './renderLoop';
@@ -73,8 +73,53 @@ function wedgeColor(a: Ammo): string {
   return tierHex(ammoTier(a.pen, a.id));
 }
 
-/** The round's name with the caliber stripped — every wedge shares it. */
-function shortName(a: Ammo): string {
+/**
+ * A cartridge, drawn.
+ *
+ * Stands in wherever a round has no mirrored picture. Case, shoulder, neck and
+ * a bullet on top, tinted to the round's own grade — enough to read as
+ * ammunition at a glance without pretending to be the real artwork.
+ */
+function cartridge(g: CanvasRenderingContext2D, cx: number, cy: number, h: number, tint: string) {
+  const w = h * 0.34;
+  g.save();
+  g.translate(cx, cy);
+  g.fillStyle = '#c9a24a';
+  // Case: straight walls up to the shoulder.
+  g.beginPath();
+  g.moveTo(-w / 2, h * 0.5);
+  g.lineTo(w / 2, h * 0.5);
+  g.lineTo(w / 2, -h * 0.02);
+  g.lineTo(w * 0.28, -h * 0.16);
+  g.lineTo(w * 0.28, -h * 0.28);
+  g.lineTo(-w * 0.28, -h * 0.28);
+  g.lineTo(-w * 0.28, -h * 0.16);
+  g.lineTo(-w / 2, -h * 0.02);
+  g.closePath();
+  g.fill();
+  // Rim.
+  g.fillStyle = 'rgba(0,0,0,0.35)';
+  g.fillRect(-w / 2, h * 0.36, w, h * 0.08);
+  // Bullet, in the grade colour so the wedge and its round agree.
+  g.fillStyle = tint;
+  g.beginPath();
+  g.moveTo(-w * 0.28, -h * 0.28);
+  g.quadraticCurveTo(-w * 0.26, -h * 0.44, 0, -h * 0.5);
+  g.quadraticCurveTo(w * 0.26, -h * 0.44, w * 0.28, -h * 0.28);
+  g.closePath();
+  g.fill();
+  g.restore();
+}
+
+/**
+ * What to write on a wedge.
+ *
+ * On a single-caliber board the caliber is on the bull already, so the wedge
+ * only needs the load name. On a mixed board it is the only thing telling a
+ * 12 Gauge slug from a rifle round, so it stays.
+ */
+function wedgeLabel(a: Ammo, single: boolean): string {
+  if (!single) return a.name;
   const s = a.name.slice(a.caliber.length).trim();
   return s || a.name;
 }
@@ -84,7 +129,11 @@ function shortName(a: Ammo): string {
  *
  * Returns the texture. The caller owns disposing it.
  */
-function boardTexture(rounds: Ammo[], caliber: string | null): THREE.CanvasTexture {
+function boardTexture(
+  rounds: Ammo[],
+  caliber: string | null,
+  pics: Map<string, HTMLImageElement>,
+): THREE.CanvasTexture {
   const c = document.createElement('canvas');
   c.width = TEX;
   c.height = TEX;
@@ -97,6 +146,11 @@ function boardTexture(rounds: Ammo[], caliber: string | null): THREE.CanvasTextu
   g.beginPath();
   g.arc(mid, mid, R, 0, Math.PI * 2);
   g.fill();
+
+  // One caliber across the whole board, or a mixed bag? It changes both the
+  // wedge labels and what the bull can honestly say.
+  const single = rounds.length > 0 && rounds.every((r) => r.caliber === rounds[0].caliber);
+  const shown = single ? (caliber ?? rounds[0].caliber) : null;
 
   const n = rounds.length;
   if (n > 0) {
@@ -134,8 +188,21 @@ function boardTexture(rounds: Ammo[], caliber: string | null): THREE.CanvasTextu
       const rMid = R * (RING_IN + RING_OUT) * 0.5;
       const x = flip ? -rMid : rMid;
 
-      const label = shortName(a);
-      const size = label.length > 12 ? 34 : label.length > 8 ? 42 : 50;
+      // The round itself, above its name. A mirrored picture if one has been
+      // made, a drawn cartridge if not — the wedge is never empty.
+      const pic = pics.get(a.id);
+      const artH = R * (RING_OUT - RING_IN) * 0.34;
+      if (pic && pic.naturalWidth) {
+        const ar = pic.naturalWidth / pic.naturalHeight;
+        const ph = artH;
+        const pw = ph * ar;
+        g.drawImage(pic, x - pw / 2, -artH * 1.15 - ph / 2, pw, ph);
+      } else {
+        cartridge(g, x, -artH * 1.15, artH, wedgeColor(a));
+      }
+
+      const label = wedgeLabel(a, single);
+      const size = label.length > 18 ? 26 : label.length > 12 ? 32 : label.length > 8 ? 40 : 48;
       g.font = `800 ${size}px system-ui, sans-serif`;
       g.fillStyle = '#f7fbff';
       g.shadowColor = 'rgba(0,0,0,0.75)';
@@ -169,14 +236,21 @@ function boardTexture(rounds: Ammo[], caliber: string | null): THREE.CanvasTextu
   g.textAlign = 'center';
   g.textBaseline = 'middle';
   g.shadowBlur = 0;
-  if (caliber) {
-    const size = caliber.length > 10 ? 34 : 42;
+  if (shown) {
+    const size = shown.length > 10 ? 34 : 42;
     g.font = `800 ${size}px ui-monospace, monospace`;
     g.fillStyle = '#0ff796';
-    g.fillText(caliber, mid, mid - 14);
+    g.fillText(shown, mid, mid - 14);
     g.font = '600 22px ui-monospace, monospace';
     g.fillStyle = '#5e7381';
     g.fillText('CALIBER', mid, mid + 24);
+  } else if (rounds.length > 0) {
+    g.font = '800 40px ui-monospace, monospace';
+    g.fillStyle = '#0ff796';
+    g.fillText('AMMO', mid, mid - 12);
+    g.font = '600 20px ui-monospace, monospace';
+    g.fillStyle = '#5e7381';
+    g.fillText('ANY CALIBER', mid, mid + 24);
   } else {
     g.font = '800 34px ui-monospace, monospace';
     g.fillStyle = '#5e7381';
@@ -423,7 +497,15 @@ export const DartBoard = forwardRef<DartHandle, Props>(function DartBoard(
     backing.receiveShadow = true;
     board.add(backing);
 
-    let faceTex = boardTexture([], null);
+    /**
+     * Mirrored pictures, kept across boards so a reshuffle does not refetch.
+     *
+     * Same-origin files, so unlike the attachment cards these CAN go straight
+     * into the canvas texture — a cross-origin image could not without CORS
+     * headers, which is the whole reason they are mirrored in the first place.
+     */
+    const pics = new Map<string, HTMLImageElement>();
+    let faceTex = boardTexture([], null, pics);
     const faceMat = new THREE.MeshStandardMaterial({ map: faceTex, roughness: 0.72 });
     keep(faceMat);
     const face = new THREE.Mesh(keep(new THREE.CircleGeometry(BOARD_R, 96)), faceMat);
@@ -544,11 +626,42 @@ export const DartBoard = forwardRef<DartHandle, Props>(function DartBoard(
     const stuckQuat = new THREE.Quaternion();
     let dirty = true;
 
-    const setBoard = (rounds: Ammo[], caliber: string | null) => {
+    /** Bumped on every setBoard, so a late picture cannot redraw a stale board. */
+    let boardRun = 0;
+
+    const paint = (rounds: Ammo[], caliber: string | null) => {
       faceTex.dispose();
-      faceTex = boardTexture(rounds, caliber);
+      faceTex = boardTexture(rounds, caliber, pics);
       faceMat.map = faceTex;
       faceMat.needsUpdate = true;
+      dirty = true;
+      loop?.wake();
+    };
+
+    const setBoard = (rounds: Ammo[], caliber: string | null) => {
+      const run = ++boardRun;
+      paint(rounds, caliber);
+
+      // Pictures arrive later; the board is redrawn once they are all in
+      // rather than once per image, so a six-round board repaints once.
+      const wanted = rounds.filter((a) => ammoImageSrc(a) && !pics.has(a.id));
+      if (wanted.length) {
+        let left = wanted.length;
+        for (const a of wanted) {
+          const img = new Image();
+          img.decoding = 'async';
+          const done = () => {
+            if (img.naturalWidth) pics.set(a.id, img);
+            if (--left === 0 && run === boardRun) paint(rounds, caliber);
+          };
+          img.onload = done;
+          // A missing mirror is expected until the pictures have been fetched;
+          // that round simply keeps its drawn cartridge.
+          img.onerror = done;
+          img.src = ammoImageSrc(a) as string;
+        }
+      }
+
       dart.visible = false;
       t = -1;
       focus = 0;
