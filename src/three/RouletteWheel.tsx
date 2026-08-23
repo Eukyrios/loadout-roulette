@@ -500,7 +500,16 @@ export const RouletteWheel = forwardRef<RouletteHandle, Props>(function Roulette
      * as each sequence starts means the control works without a reload, and
      * the value still holds steady for the run it governs.
      */
-    let duration = animMs(reduced ? 1400 : SPIN_MS);
+    /*
+     * Full written length, whatever the system preference says.
+     *
+     * This used to fall back to a much shorter figure under prefers-reduced-
+     * motion, which made the length control scale a stage that had already
+     * been cut to a fraction behind the user's back. The preference now picks
+     * the DEFAULT on the slider instead, so it is honoured once, visibly, in a
+     * place that can be overridden.
+     */
+    let duration = animMs(SPIN_MS);
 
     /**
      * Camera pose, 0 = laid back and wide, 1 = overhead and closed in on the
@@ -548,7 +557,7 @@ export const RouletteWheel = forwardRef<RouletteHandle, Props>(function Roulette
     api.current = {
       spin: (pocket: number) =>
         new Promise<void>((resolve) => {
-          duration = animMs(reduced ? 1400 : SPIN_MS);
+          duration = animMs(SPIN_MS);
           resolveSpin = resolve;
           // Always head back to the rolling pose first.
           camTarget = 0;

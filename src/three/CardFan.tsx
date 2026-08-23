@@ -245,7 +245,16 @@ export const CardFan = forwardRef<CardFanHandle, Props>(function CardFan(
      * as each sequence starts means the control works without a reload, and
      * the value still holds steady for the run it governs.
      */
-    let duration = animMs(reduced ? 420 : DRAW_MS);
+    /*
+     * Full written length, whatever the system preference says.
+     *
+     * This used to fall back to a much shorter figure under prefers-reduced-
+     * motion, which made the length control scale a stage that had already
+     * been cut to a fraction behind the user's back. The preference now picks
+     * the DEFAULT on the slider instead, so it is honoured once, visibly, in a
+     * place that can be overridden.
+     */
+    let duration = animMs(DRAW_MS);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -536,7 +545,7 @@ export const CardFan = forwardRef<CardFanHandle, Props>(function CardFan(
     api.current = {
       draw: (slot: number, label: string, last = false) =>
         new Promise<void>((resolve) => {
-          duration = animMs(reduced ? 420 : DRAW_MS);
+          duration = animMs(DRAW_MS);
           // Taken from anywhere in the spread, not off the end — you are
           // pulling a card out of a fan, not dealing off the top. Which one is
           // hashed from the key it carries rather than drawn from Math.random,

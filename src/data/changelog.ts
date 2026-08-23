@@ -26,6 +26,7 @@ export const CHANGELOG: LogEntry[] = [
       'A longer setting is more items flying past, not the same handful crawling \u2014 the strip travels further to fill the extra time, so its own pace holds at roughly the same speed whatever the slider says.',
       'Rarity multiplies on top and is back to a clean three: a red reel runs three times a gray and travels three times as far, at every setting. That had quietly stopped showing, because the strip length was worked out AFTER the speed was applied and kept bottoming out on its floor \u2014 so a red and a gray covered identical ground and the red merely crawled.',
       'Four stages ignored the slider until a reload \u2014 the roulette wheel, the dice, the keycards and the stick cup each measured their length once when their scene was built, and a scene is built once for the life of the page. They read it as each sequence starts now.',
+      'A system setting for less motion no longer overrules any of it. It was clamping every length to 0.385 \u2014 below the slider\u2019s own minimum \u2014 so on a machine with that preference on, the control could not move anything and rarity could not either: a red and a gray came out the same. The preference picks where the slider starts now, and Animation off is still one button along for anyone who wants none at all.',
     ],
   },
   {

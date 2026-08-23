@@ -39,22 +39,40 @@ export interface AppSettings {
 export const LENGTH_MIN = 0.5;
 export const LENGTH_MAX = 5;
 
+/**
+ * The system's own preference for less motion.
+ *
+ * It picks the DEFAULT length and nothing more. It used to clamp the value
+ * instead, which quietly broke the control it was meant to inform: the clamp
+ * sat at 0.385 and the slider bottoms out at 0.5, so every setting collapsed
+ * to the same number and neither the slider nor the rarity stretch could move
+ * anything. A preference should choose where a control starts, not overrule
+ * where its owner puts it — and Animation off, one button along, is still
+ * there for anyone who wants no motion at all.
+ */
+const prefersReduced = () =>
+  typeof window !== 'undefined' &&
+  window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
 const KEY = 'lr:settings';
 
 const DEFAULTS: AppSettings = { animate: true, length: 2.5, sound: true, volume: 0.85 };
+
+/** What the length starts at, before anyone has touched the slider. */
+const defaultLength = () => (prefersReduced() ? LENGTH_MIN : DEFAULTS.length);
 
 function load(): AppSettings {
   if (typeof window === 'undefined') return DEFAULTS;
   try {
     const raw = window.localStorage.getItem(KEY);
-    if (!raw) return DEFAULTS;
+    if (!raw) return { ...DEFAULTS, length: defaultLength() };
     const got = JSON.parse(raw) as Partial<AppSettings>;
     return {
       animate: typeof got.animate === 'boolean' ? got.animate : DEFAULTS.animate,
       length:
         typeof got.length === 'number' && got.length >= LENGTH_MIN && got.length <= LENGTH_MAX
           ? got.length
-          : DEFAULTS.length,
+          : defaultLength(),
       sound: typeof got.sound === 'boolean' ? got.sound : DEFAULTS.sound,
       volume:
         typeof got.volume === 'number' && got.volume >= 0 && got.volume <= 1
@@ -91,11 +109,6 @@ export function useSettings(): AppSettings {
   return useSyncExternalStore(subscribe, getSettings, () => DEFAULTS);
 }
 
-/** The system's own preference, which still counts when animation is on. */
-const prefersReduced = () =>
-  typeof window !== 'undefined' &&
-  window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-
 /**
  * How fast the 3D scenes should run, as a multiplier on real time.
  *
@@ -111,10 +124,9 @@ function animLength(): number {
   // Not zero and not a skip — see above. A sixtieth of the written length puts
   // every sequence inside a frame while still running it end to end.
   if (!state.animate) return 1 / 60;
-  // A system preference for less motion is a ceiling, not an override: it will
-  // not let a sequence run longer than the old reduced length, and it will not
-  // stretch a setting that is already shorter than that.
-  return prefersReduced() ? Math.min(state.length, 1 / 2.6) : state.length;
+  // Whatever the slider says, with nothing second-guessing it. See
+  // prefersReduced for why this is not clamped.
+  return state.length;
 }
 
 /** The same thing as a rate, for loops that advance by dt. */

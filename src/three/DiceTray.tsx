@@ -214,7 +214,6 @@ export const DiceTray = forwardRef<DiceHandle, Props>(function DiceTray(
     const mount = mountRef.current;
     if (!mount) return;
 
-    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     /*
      * Re-read on every run, not captured at mount.
      *
@@ -224,7 +223,16 @@ export const DiceTray = forwardRef<DiceHandle, Props>(function DiceTray(
      * as each sequence starts means the control works without a reload, and
      * the value still holds steady for the run it governs.
      */
-    let duration = animMs(reduced ? 700 : ROLL_MS);
+    /*
+     * Full written length, whatever the system preference says.
+     *
+     * This used to fall back to a much shorter figure under prefers-reduced-
+     * motion, which made the length control scale a stage that had already
+     * been cut to a fraction behind the user's back. The preference now picks
+     * the DEFAULT on the slider instead, so it is honoured once, visibly, in a
+     * place that can be overridden.
+     */
+    let duration = animMs(ROLL_MS);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -383,7 +391,7 @@ export const DiceTray = forwardRef<DiceHandle, Props>(function DiceTray(
     api.current = {
       roll: (a: number, b: number) =>
         new Promise<void>((resolve) => {
-          duration = animMs(reduced ? 700 : ROLL_MS);
+          duration = animMs(ROLL_MS);
           const values = [a, b];
           states.forEach((s, i) => {
             s.captured = null;
