@@ -2228,42 +2228,131 @@ body {
 /* A fixed height on every column, filled or not, so the headings below stay
    on one line across the cabinet. */
 .reel__range {
-  min-height: 58px;
+  min-height: 52px;
   margin-bottom: 8px;
   padding-bottom: 8px;
   border-bottom: 1px solid var(--line);
 }
 
-/* Stacked, not side by side. A column is about 230px wide and two steppers
-   abreast need more than that — they spilled over their neighbours. */
-.reel__range .rangectl__row {
+/* --- the two-handled tier slider ----------------------------------------- */
+
+.dual {
+  display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 5px;
 }
 
-.reel__range .stepper {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  align-items: center;
+.dual__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
   gap: 8px;
 }
 
-.reel__range .stepper__label {
-  font-size: 8px;
+.dual__label {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--text-faint);
 }
 
-.reel__range .stepper__body {
-  justify-content: space-between;
-}
-
-.reel__range .stepper__value {
+.dual__value {
+  font-family: var(--mono);
   font-size: 11px;
+  font-weight: 700;
+  color: var(--accent);
   white-space: nowrap;
 }
 
-.reel__range .btn--icon {
-  padding: 2px 6px;
-  font-size: 9px;
+/* The two inputs are stacked on this, so it owns the height. */
+.dual__track {
+  position: relative;
+  height: 20px;
+}
+
+.dual__rail,
+.dual__fill {
+  position: absolute;
+  top: 50%;
+  height: 4px;
+  margin-top: -2px;
+  border-radius: 2px;
+  pointer-events: none;
+}
+
+.dual__rail {
+  left: 0;
+  right: 0;
+  background: var(--steel);
+}
+
+.dual__fill {
+  background: var(--accent);
+  box-shadow: 0 0 10px rgba(var(--accent-rgb), 0.45);
+}
+
+/* Transparent to the pointer everywhere except its own handle, so the two
+   inputs can share one track without the top one swallowing every click. */
+.dual__in {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 20px;
+  margin: 0;
+  background: none;
+  appearance: none;
+  -webkit-appearance: none;
+  pointer-events: none;
+}
+
+.dual__in:focus {
+  outline: none;
+}
+
+.dual__in::-webkit-slider-runnable-track {
+  height: 20px;
+  background: none;
+}
+
+.dual__in::-moz-range-track {
+  height: 20px;
+  background: none;
+}
+
+.dual__in::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  pointer-events: auto;
+  width: 14px;
+  height: 14px;
+  margin-top: 3px;
+  border: 2px solid #06111a;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.7);
+  cursor: grab;
+}
+
+.dual__in::-moz-range-thumb {
+  pointer-events: auto;
+  width: 14px;
+  height: 14px;
+  border: 2px solid #06111a;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.7);
+  cursor: grab;
+}
+
+.dual__in:focus-visible::-webkit-slider-thumb {
+  outline: 2px solid var(--text);
+  outline-offset: 2px;
+}
+
+.dual__in:focus-visible::-moz-range-thumb {
+  outline: 2px solid var(--text);
+  outline-offset: 2px;
 }
 
 /* ----------------------------------------------------------- control bar */

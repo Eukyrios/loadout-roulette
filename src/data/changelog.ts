@@ -30,7 +30,7 @@ export const CHANGELOG: LogEntry[] = [
     title: 'Filters folded into the machine',
     notes: [
       'The settings panel moved inside the cabinet itself, since every filter left in it narrows those reels and nothing else. It takes the machine\u2019s bottom edge as its own and drops its eyebrow — the crown above already says whose machine it is.',
-      'Tier bounds now sit above the column they govern, instead of in a grid four sections down a panel.',
+      'Tier bounds now sit above the column they govern, instead of in a grid four sections down a panel, and are one two-handled slider rather than two rows of steppers.',
       'Preset selection became a chip on the machine crown, next to the difficulty.',
     ],
   },

@@ -11,10 +11,17 @@ interface Props {
 }
 
 /**
- * A min/max stepper pair for one range filter.
+ * A two-handled slider for one range filter.
  *
- * Exported because these now live under their own reel in the cabinet rather
- * than in this panel — same control, moved to where it means something.
+ * One line, both bounds. It was a pair of stepper rows, which took two lines
+ * and four buttons to say something you can see at a glance on a track — and
+ * under a reel column there is no room for two lines.
+ *
+ * There is no two-handled input in HTML, so this is the standard construction:
+ * two ordinary range inputs stacked on the same track, each transparent to the
+ * pointer except for its own handle, with a filled span drawn between them.
+ * They stay real inputs, so arrow keys, Home/End and screen readers all work
+ * without any of it being reimplemented.
  */
 export function RangeControl({
   slot,
@@ -33,44 +40,58 @@ export function RangeControl({
 }) {
   const [lo, hi] = value;
   const [min, max] = bounds;
+  const span = Math.max(1, max - min);
+  const pct = (v: number) => ((v - min) / span) * 100;
 
-  const step = (which: 0 | 1, dir: -1 | 1) => {
-    const next: [number, number] = [lo, hi];
-    next[which] = Math.min(max, Math.max(min, next[which] + dir));
-    // Keep min <= max by pushing the other bound along.
-    if (which === 0 && next[0] > next[1]) next[1] = next[0];
-    if (which === 1 && next[1] < next[0]) next[0] = next[1];
-    onChange(next);
-  };
+  /** Clamp so the handles can meet but never cross. */
+  const setLo = (v: number) => onChange([Math.min(v, hi), hi]);
+  const setHi = (v: number) => onChange([lo, Math.max(v, lo)]);
 
   return (
-    <div className="rangectl__row">
-      {([0, 1] as const).map((which) => (
-        <div className="stepper" key={which}>
-          <span className="stepper__label">{which === 0 ? 'Min' : 'Max'}</span>
-          <div className="stepper__body">
-            <button
-              type="button"
-              className="btn btn--icon"
-              onClick={() => step(which, -1)}
-              disabled={value[which] <= min}
-              aria-label={`Decrease ${slot.label} ${which === 0 ? 'minimum' : 'maximum'} ${label}`}
-            >
-              ◀
-            </button>
-            <span className="stepper__value">{format(value[which])}</span>
-            <button
-              type="button"
-              className="btn btn--icon"
-              onClick={() => step(which, 1)}
-              disabled={value[which] >= max}
-              aria-label={`Increase ${slot.label} ${which === 0 ? 'minimum' : 'maximum'} ${label}`}
-            >
-              ▶
-            </button>
-          </div>
-        </div>
-      ))}
+    <div className="dual">
+      <div className="dual__head">
+        <span className="dual__label">{label}</span>
+        <span className="dual__value">
+          {lo === hi ? format(lo) : `${format(lo)} – ${format(hi)}`}
+        </span>
+      </div>
+
+      <div className="dual__track">
+        <span className="dual__rail" aria-hidden="true" />
+        <span
+          className="dual__fill"
+          aria-hidden="true"
+          style={{ left: `${pct(lo)}%`, right: `${100 - pct(hi)}%` }}
+        />
+        {/*
+          Whichever handle is in the top half of the track takes the higher
+          stacking order. With both parked on the same value the one on top is
+          the only one you can grab, and this keeps that from being a dead end
+          at either extreme.
+        */}
+        <input
+          type="range"
+          className="dual__in"
+          style={{ zIndex: lo > (min + max) / 2 ? 4 : 3 }}
+          min={min}
+          max={max}
+          step={1}
+          value={lo}
+          aria-label={`${slot.label} minimum ${label}`}
+          onChange={(e) => setLo(Number(e.target.value))}
+        />
+        <input
+          type="range"
+          className="dual__in"
+          style={{ zIndex: 4 }}
+          min={min}
+          max={max}
+          step={1}
+          value={hi}
+          aria-label={`${slot.label} maximum ${label}`}
+          onChange={(e) => setHi(Number(e.target.value))}
+        />
+      </div>
     </div>
   );
 }
