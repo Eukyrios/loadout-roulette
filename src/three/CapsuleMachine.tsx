@@ -149,7 +149,7 @@ function hops(u: number, count = 4, rest = 0.36): { h: number; arc: number } {
 /* ------------------------------------------------------------------- cards */
 
 /**
- * One attachment as a card: its picture over the name, slot and price.
+ * One attachment as a card: its picture over the slot label and the name.
  *
  * The same cream-and-green treatment as the keycards — one design for every
  * slot. Colour-coding by slot turned the row into a paint chart.
@@ -257,7 +257,7 @@ function cardTexture(a: Attachment): THREE.CanvasTexture {
   c.height = TEX_H;
   const g = c.getContext('2d')!;
 
-  // Dark panel, green slot label, picture, name, price. One design for every
+  // Dark panel, green slot label, picture, name. One design for every
   // slot — colour-coding by slot turned the row into a paint chart.
   const grad = g.createLinearGradient(0, 0, 0, c.height);
   grad.addColorStop(0, '#0c1620');
@@ -296,11 +296,11 @@ function cardTexture(a: Attachment): THREE.CanvasTexture {
   }
   if (line) lines.push(line);
   const lh = size * 1.2;
-  lines.slice(0, 3).forEach((l, i) => g.fillText(l, c.width / 2, 404 + i * lh));
-
-  g.fillStyle = '#5e7381';
-  g.font = '600 20px ui-monospace, monospace';
-  g.fillText(a.price.toLocaleString('en-US'), c.width / 2, c.height - 34);
+  // No price line under the name. The figure is in the data but not on the
+  // card: market numbers go stale between patches and nothing here reconciles
+  // them, so printing one would be stating something the app cannot stand
+  // behind. The name block moves down into the room that leaves.
+  lines.slice(0, 3).forEach((l, i) => g.fillText(l, c.width / 2, 428 + i * lh));
 
   const t = new THREE.CanvasTexture(c);
   t.colorSpace = THREE.SRGBColorSpace;

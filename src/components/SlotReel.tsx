@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { entryImageSrc } from '../data/icons';
 import { getSettings } from '../engine/settings';
 import type { Entry, SlotSpec } from '../data/types';
 
@@ -410,18 +411,43 @@ export function SlotReel({
           className={`reel__strip${blur ? ' is-blur' : ''}`}
           style={stripStyle}
         >
-          {strip.map((item, i) => (
-            <div className="cell" key={`${item?.id ?? 'x'}-${i}`}>
+          {strip.map((item, i) => {
+            const icon = empty ? null : entryImageSrc(item?.id);
+            return (
+            <div
+              className={`cell${icon ? ' cell--art' : ''}`}
+              key={`${item?.id ?? 'x'}-${i}`}
+            >
               {empty ? (
                 <span className="cell__name cell__name--empty">No match</span>
+              ) : icon ? (
+                /* Picture only. The strip is a blur of things going past, not
+                   something you read — the name that matters is the one under
+                   the window, which is the item that actually landed. A name
+                   in every cell competed with it and made a spin look like a
+                   list scrolling. */
+                <img
+                  className="cell__icon"
+                  src={icon}
+                  alt={item?.name ?? ''}
+                  loading="lazy"
+                  decoding="async"
+                  onError={(e) => {
+                    e.currentTarget.style.visibility = 'hidden';
+                  }}
+                />
               ) : (
-                <>
+                /* No picture published for this one — maps, operators and the
+                   newer guns. A blank cell would read as a broken strip, so
+                   these keep the name they always had. */
+                <span className="cell__text">
                   <span className="cell__name">{item?.name ?? '—'}</span>
                   {item?.note && <span className="cell__note">{item.note}</span>}
-                </>
+                </span>
               )}
             </div>
-          ))}
+            );
+          })}
         </div>
         <div className="reel__shade" aria-hidden="true" />
         {/* The cabinet's own payline is one bar drawn across all seven columns,

@@ -947,7 +947,6 @@ export default function App() {
                   <li key={a.id} className="caps__item">
                     <span className="caps__slot">{a.cat}</span>
                     <span className="caps__name">{a.name}</span>
-                    <span className="caps__price">{a.price.toLocaleString('en-US')}</span>
                   </li>
                 ))}
               </ul>
@@ -1031,7 +1030,6 @@ export default function App() {
                     <span className={`ammo__meta ammo__meta--t${ammoTier(ammo.pen, ammo.id)}`}>
                       <strong>{TIER_NAME[ammoTier(ammo.pen, ammo.id)]}</strong>
                       {ammo.pen === null ? ' · penetration unknown' : ` · penetration ${ammo.pen}`}
-                      {ammo.price !== null ? ` · ${ammo.price.toLocaleString('en-US')}` : ''}
                     </span>
                   </div>
                 </div>

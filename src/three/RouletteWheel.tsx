@@ -439,6 +439,26 @@ export const RouletteWheel = forwardRef<RouletteHandle, Props>(function Roulette
     cool.position.set(-5, 5, -6);
     scene.add(cool);
 
+    /* ---- the table it stands on ------------------------------------ */
+    // Baize, the same cloth as the other stages, and nothing else: the bowl
+    // already carries its own brass rim, so a wooden surround out here would
+    // be a second ring around the same circle.
+    //
+    // Wide enough that the frame never finds its edge. The rolling pose sits
+    // 44 degrees off vertical with a 19-degree half-angle, so the top of the
+    // frame meets this plane about 14 units out; 30 leaves room to spare.
+    const feltGeo = new THREE.CircleGeometry(30, 72);
+    const feltMat = new THREE.MeshStandardMaterial({
+      color: 0x16342a,
+      roughness: 0.94,
+      metalness: 0.02,
+    });
+    const felt = new THREE.Mesh(feltGeo, feltMat);
+    felt.rotation.x = -Math.PI / 2;
+    felt.position.y = -0.56; // a hair under the bowl base at -0.55
+    felt.receiveShadow = true;
+    scene.add(felt);
+
     const bowl = buildBowl();
     scene.add(bowl.group);
 
@@ -684,6 +704,8 @@ export const RouletteWheel = forwardRef<RouletteHandle, Props>(function Roulette
       wheel.dispose();
       bowl.dispose();
       ballGeo.dispose();
+      feltGeo.dispose();
+      feltMat.dispose();
       ballMat.dispose();
       renderer.dispose();
       if (renderer.domElement.parentNode === mount) mount.removeChild(renderer.domElement);

@@ -34,6 +34,14 @@
 
   --cell: 76px;
   --head-h: 26px;
+  /* Total height of the tier-bounds block above every column heading, margin
+     included: a 52px border box plus 8px of margin. The cabinet-wide payline
+     is positioned from the top of the cabinet, so it has to count this — when
+     the bounds moved up here and this did not, the green line sat a whole
+     block above the row it marks. Changing .reel__range means changing this;
+     measured at 60, not guessed, because the block is border-box and its
+     padding and rule are inside the 52. */
+  --range-h: 60px;
 
   --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
   --sans: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
@@ -840,7 +848,7 @@ body {
   position: absolute;
   left: 8px;
   right: 8px;
-  top: calc(16px + var(--head-h) + var(--cell));
+  top: calc(16px + var(--range-h) + var(--head-h) + var(--cell));
   height: var(--cell);
   pointer-events: none;
   z-index: 2;
@@ -979,6 +987,29 @@ body {
   padding: 4px 7px;
   text-align: center;
   border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+/* A cell with a picture is the picture and nothing else, centred, as large as
+   the cell allows. Sharing the cell with the name left both small; the name
+   under the window says what landed. */
+.cell--art {
+  padding: 5px 6px;
+}
+
+.cell__icon {
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.65));
+}
+
+.cell__text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
 }
 
 .cell__name {
@@ -1301,7 +1332,10 @@ body {
    both the row and this list into a paint chart. */
 .caps__item {
   display: grid;
-  grid-template-columns: 74px 1fr auto;
+  /* Prices are collected but not shown. Market numbers go stale between
+     patches and there is nothing here that reconciles them, so a figure on
+     every row would be stating something the app cannot stand behind. */
+  grid-template-columns: 74px 1fr;
   gap: 9px;
   align-items: baseline;
   padding-left: 8px;
@@ -2228,7 +2262,10 @@ body {
 /* A fixed height on every column, filled or not, so the headings below stay
    on one line across the cabinet. */
 .reel__range {
-  min-height: 52px;
+  /* --range-h is this block's total height, and the cabinet-wide payline is
+     positioned with it. Derived from the variable rather than stated twice, so
+     the line cannot drift away from the row it marks. */
+  min-height: calc(var(--range-h) - 8px);
   margin-bottom: 8px;
   padding-bottom: 8px;
   border-bottom: 1px solid var(--line);

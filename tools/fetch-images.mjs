@@ -12,14 +12,16 @@
  *
  *   tools/att-sources.json    414 attachment pictures  -> public/att/<id>.png
  *   tools/ammo-sources.json    59 ammunition pictures  -> public/ammo/<id>.png
+ *   tools/gear-sources.json   124 gun and gear icons   -> public/gear/<id>.png
  *
  * Run it once and the pictures appear. Already-downloaded files are skipped,
  * so re-running only fetches what is new:
  *
  *   npm run icons
  *
- * Until then nothing is broken — an attachment card draws its slot glyph and a
- * round draws a cartridge. That is a designed fallback, not a failure state.
+ * Until then nothing is broken — an attachment card draws its slot glyph, a
+ * round draws a cartridge, and a reel cell shows its name alone. Those are
+ * designed fallbacks, not failure states.
  */
 
 import { readFile, writeFile, mkdir, readdir } from 'node:fs/promises';
@@ -32,6 +34,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const SETS = [
   { name: 'attachments', map: 'tools/att-sources.json', out: 'public/att', min: 400 },
   { name: 'ammunition', map: 'tools/ammo-sources.json', out: 'public/ammo', min: 50 },
+  { name: 'gear and guns', map: 'tools/gear-sources.json', out: 'public/gear', min: 100 },
 ];
 
 async function download(url) {

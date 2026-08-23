@@ -19,6 +19,24 @@ export interface LogEntry {
 
 export const CHANGELOG: LogEntry[] = [
   {
+    title: 'Pictures only in the strip, and no prices',
+    notes: [
+      'A reel cell with a picture is now just the picture, filling the cell. The name under the window is the one that counts; a name in every cell competed with it and made a spin read as a list scrolling past. Cells with no picture published still carry their name.',
+      'Prices are no longer shown anywhere — not on the attachment cards, not in the parts list, not under a round. The figures are still collected, but they go stale between patches and nothing here reconciles them.',
+      'The roulette wheel got the same green table as the other stages, cloth only — the bowl already has its own rim.',
+      'Fixed the payline: the tier bounds moved above the columns and the green line did not follow, so it had been sitting a block high.',
+    ],
+  },
+  {
+    title: 'Icons on the slot machine',
+    notes: [
+      'Guns, helmets, vests, chest rigs and backpacks now show their own artwork in the reel cells, beside the name rather than above it — a column is twice as wide as a cell is tall, so the room a picture can have is horizontal.',
+      '124 of the 159 entries have one. The rest are newer guns and a handful of gear no source publishes a picture for; those cells read as they always did.',
+      'Mirrored into public/gear/ like the rest of the art, so nothing is fetched from anyone else at runtime. npm run icons fills all three sets.',
+      'Maps and operators have no published icons anywhere, so those two columns stay text.',
+    ],
+  },
+  {
     title: 'A control bar, always on screen',
     notes: [
       'Added a bar pinned to the bottom of the window: animation on or off, mute, and a volume slider. Remembered across visits.',
