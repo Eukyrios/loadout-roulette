@@ -1,19 +1,22 @@
 import type { FilterState, SlotSpec } from '../data/types';
 import { SLOTS } from '../data/slots';
-import { multiKey, rangeBounds, rangeKey } from '../engine/filters';
-import { PRESETS } from '../engine/presets';
+import { multiKey } from '../engine/filters';
 
 interface Props {
   open: boolean;
   onToggle: () => void;
   filters: FilterState;
   onFilters: (next: FilterState) => void;
-  onPreset: (id: string) => void;
   onReset: () => void;
 }
 
-/** A min/max stepper pair for one range filter. */
-function RangeControl({
+/**
+ * A min/max stepper pair for one range filter.
+ *
+ * Exported because these now live under their own reel in the cabinet rather
+ * than in this panel — same control, moved to where it means something.
+ */
+export function RangeControl({
   slot,
   label,
   format,
@@ -123,9 +126,8 @@ function Block({
   );
 }
 
-export function SettingsPanel({ open, onToggle, filters, onFilters, onPreset, onReset }: Props) {
-  // Every slot that has a filter gets its own section, in SLOTS order.
-  const rangeSlots = SLOTS.filter((s) => s.filters?.some((f) => f.kind === 'range'));
+export function SettingsPanel({ open, onToggle, filters, onFilters, onReset }: Props) {
+  // Every slot that has a picker gets its own section, in SLOTS order.
   const multiSlots = SLOTS.filter((s) => s.filters?.some((f) => f.kind === 'multi'));
 
   return (
@@ -140,53 +142,10 @@ export function SettingsPanel({ open, onToggle, filters, onFilters, onPreset, on
 
       {open && (
         <div className="panel__body">
-          {/* Also available as a bar above the cabinet — kept here so the
-              whole filter setup can be driven from one place. */}
-          <Block title="Presets">
-            <div className="presets">
-              {PRESETS.map((p) => (
-                <button
-                  key={p.id}
-                  type="button"
-                  className="preset"
-                  onClick={() => onPreset(p.id)}
-                  title={p.blurb}
-                >
-                  <span className="preset__name">{p.name}</span>
-                  <span className="preset__blurb">{p.blurb}</span>
-                </button>
-              ))}
-            </div>
-          </Block>
-
-          {/* --- tier bounds, one section per gear slot -------------------- */}
-          <div className="panel__grid">
-            {rangeSlots.map((slot) =>
-              (slot.filters ?? [])
-                .filter((f) => f.kind === 'range')
-                .map((f) => {
-                  if (f.kind !== 'range') return null;
-                  const key = rangeKey(slot.id, f.attr);
-                  const bounds = rangeBounds(slot, f.attr, [f.min, f.max]);
-                  const value = filters.ranges[key] ?? bounds;
-                  return (
-                    <Block key={key} title={slot.label}>
-                      <RangeControl
-                        slot={slot}
-                        label={f.label}
-                        format={f.format ?? String}
-                        bounds={bounds}
-                        value={value}
-                        onChange={(next) =>
-                          onFilters({ ...filters, ranges: { ...filters.ranges, [key]: next } })
-                        }
-                      />
-                    </Block>
-                  );
-                }),
-            )}
-          </div>
-
+          {/* Presets and the per-slot tier bounds are not here any more: the
+              presets are a chip on the machine's crown and the bounds sit under
+              the column each one governs. What is left is the pickers, which
+              have no natural home on a reel. */}
           {/* --- pickers: maps, operator classes, weapon types ------------- */}
           {multiSlots.map((slot) =>
             (slot.filters ?? [])

@@ -2145,79 +2145,17 @@ body {
 }
 
 /* ------------------------------------------------------------- build log */
-
-/* One column: the log is prose, and prose does not want a 3D panel beside it. */
-.stage--log {
-  grid-template-columns: 1fr;
-  background:
-    radial-gradient(120% 90% at 50% 0%, rgba(var(--accent-rgb), 0.05), transparent 60%),
-    linear-gradient(180deg, #0b1218 0%, #060d11 100%);
-}
-
-.stage__side--wide {
-  max-width: 78ch;
-}
-
-/* The collapsed shell. Closed by default; the summary is the whole header. */
-.log__box {
-  gap: 0;
-}
-
-.log__toggle {
-  display: flex;
-  align-items: baseline;
-  gap: 10px;
-  flex-wrap: wrap;
-  cursor: pointer;
-  list-style: none;
-  user-select: none;
-}
-
-.log__toggle::-webkit-details-marker {
-  display: none;
-}
-
-/* A chevron that turns when the section opens. */
-.log__toggle::before {
-  content: '';
-  align-self: center;
-  width: 7px;
-  height: 7px;
-  border-right: 2px solid var(--accent);
-  border-bottom: 2px solid var(--accent);
-  transform: rotate(-45deg);
-  transition: transform 0.18s ease;
-}
-
-.log__box[open] .log__toggle::before {
-  transform: rotate(45deg);
-}
-
-.log__toggleTitle {
-  font-size: 17px;
-  font-weight: 800;
-  color: var(--accent);
-}
-
-.log__count {
-  font-family: var(--mono);
-  font-size: 10px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--text-faint);
-}
-
-.log__box .stage__hint {
-  margin-top: 12px;
-}
+/* Lives inside the same .panel shell as the settings, so only the list itself
+   needs styling here. */
 
 .log {
   list-style: none;
-  margin: 4px 0 0;
+  margin: 0;
   padding: 0 0 0 20px;
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 18px;
+  max-width: 78ch;
   /* The spine the entries hang off, so it reads as a timeline rather than a
      list of headings. */
   border-left: 1px solid var(--line);
@@ -2271,23 +2209,56 @@ body {
   padding: 1px 5px;
 }
 
-.log__summary {
-  margin: 3px 0 0;
-  font-size: 12px;
-  color: var(--text-dim);
-}
-
 .log__notes {
-  margin: 7px 0 0;
+  margin: 6px 0 0;
   padding-left: 16px;
   display: flex;
   flex-direction: column;
   gap: 5px;
-  font-size: 11.5px;
+  font-size: 12px;
   line-height: 1.55;
-  color: var(--text-faint);
+  color: var(--text-dim);
 }
 
 .log__notes li::marker {
   color: var(--line-2);
+}
+
+/* --- tier bounds, under the column they govern --------------------------- */
+.reel__range {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+}
+
+/* Stacked, not side by side. A column is about 230px wide and two steppers
+   abreast need more than that — they spilled over their neighbours. */
+.reel__range .rangectl__row {
+  flex-direction: column;
+  gap: 4px;
+}
+
+.reel__range .stepper {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 8px;
+}
+
+.reel__range .stepper__label {
+  font-size: 8px;
+}
+
+.reel__range .stepper__body {
+  justify-content: space-between;
+}
+
+.reel__range .stepper__value {
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.reel__range .btn--icon {
+  padding: 2px 6px;
+  font-size: 9px;
 }

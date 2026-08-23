@@ -1,7 +1,7 @@
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Coin } from './components/Coin';
 import { DependencyChip, type DependencyOption } from './components/DependencyChip';
-import { SettingsPanel } from './components/SettingsPanel';
+import { RangeControl, SettingsPanel } from './components/SettingsPanel';
 import { SlotMachine } from './components/SlotMachine';
 import {
   ATTACHMENT_COST_FACES,
@@ -30,7 +30,7 @@ import { CHANGELOG } from './data/changelog';
 import { TIER_NAME, ammoTier } from './data/rarity';
 import { SLOTS } from './data/slots';
 import type { Entry, FilterState, Roll } from './data/types';
-import { defaultFilterState, resolvePools } from './engine/filters';
+import { defaultFilterState, rangeBounds, rangeKey, resolvePools } from './engine/filters';
 import { usePersisted } from './engine/persist';
 import { PRESETS, applyPreset } from './engine/presets';
 import { hashString, mulberry32, randomSeedCode } from './engine/rng';
@@ -191,6 +191,7 @@ export default function App() {
   const [pickedCaliber, setPickedCaliber] = useState<string | null>(null);
 
   const [panelOpen, setPanelOpen] = useState(false);
+  const [logOpen, setLogOpen] = useState(false);
 
   const diceRef = useRef<DiceHandle>(null);
   const stickRef = useRef<StickHandle>(null);
@@ -574,6 +575,42 @@ export default function App() {
     () => WEAPONS.map((w) => ({ id: w.id, name: w.name, note: String(w.attrs?.class ?? '') })),
     [],
   );
+  const presetOptions = useMemo<DependencyOption[]>(
+    () => PRESETS.map((p) => ({ id: p.id, name: p.name, note: p.blurb })),
+    [],
+  );
+
+  /**
+   * The tier bounds for one column, or nothing if it has none.
+   *
+   * Built here rather than inside the machine because the filter state lives
+   * here; the machine just puts it under the right reel.
+   */
+  const rangeFor = useCallback(
+    (slotId: string) => {
+      const slot = SLOTS.find((x) => x.id === slotId);
+      const f = slot?.filters?.find((x) => x.kind === 'range');
+      if (!slot || !f || f.kind !== 'range') return null;
+      const key = rangeKey(slot.id, f.attr);
+      const bounds = rangeBounds(slot, f.attr, [f.min, f.max]);
+      return (
+        <div className="reel__range">
+          <RangeControl
+            slot={slot}
+            label={f.label}
+            format={f.format ?? String}
+            bounds={bounds}
+            value={filters.ranges[key] ?? bounds}
+            onChange={(next) =>
+              setFilters({ ...filters, ranges: { ...filters.ranges, [key]: next } })
+            }
+          />
+        </div>
+      );
+    },
+    [filters, setFilters],
+  );
+
   const modeOptions = useMemo<DependencyOption[]>(
     () => MODES.map((m) => ({ id: m.id, name: m.name, note: m.note })),
     [],
@@ -763,6 +800,9 @@ export default function App() {
         <SlotMachine
           ref={coinSlotRef}
           modeOptions={modeOptions}
+          presetOptions={presetOptions}
+          onPickPreset={(id: string) => setFilters(applyPreset(id))}
+          rangeFor={rangeFor}
           onPickMode={(id: string) => {
             const m = MODE_BY_ID[id];
             if (!m) return;
@@ -1144,41 +1184,44 @@ export default function App() {
         onToggle={() => setPanelOpen((o) => !o)}
         filters={filters}
         onFilters={setFilters}
-        onPreset={(id) => setFilters(applyPreset(id))}
         onReset={() => setFilters(defaultFilterState())}
       />
 
-      <section className="stage stage--log">
-        <details className="stage__side stage__side--wide log__box">
-          {/* Shut to start with: it is reference, not part of the run. */}
-          <summary className="log__toggle">
+      {/* Same shell as the settings panel: a toggle bar that opens a body.
+          It is reference material, so it is shut until asked for. */}
+      <section className={`panel${logOpen ? ' is-open' : ''}`}>
+        <button
+          type="button"
+          className="panel__toggle"
+          onClick={() => setLogOpen((o) => !o)}
+          aria-expanded={logOpen}
+        >
+          <span className="panel__toggle-text">
             <span className="secttl__eyebrow">Delta Force</span>
-            <span className="log__toggleTitle">Build log</span>
-            <span className="log__count">{CHANGELOG.length} entries</span>
-          </summary>
-          <p className="stage__hint">
-            Every round of work on this, newest first — including the things that were
-            wrong and got fixed. Game data comes from external data sources: public
-            community databases. The app never talks to them while you use it; item
-            pictures are mirrored into the project first.
-          </p>
-          <ol className="log">
-            {CHANGELOG.map((e, i) => (
-              <li key={e.title} className={`log__item${i === 0 ? ' log__item--now' : ''}`}>
-                <div className="log__head">
-                  <h3 className="log__title">{e.title}</h3>
-                  {i === 0 ? <span className="log__badge">Current</span> : null}
-                </div>
-                <p className="log__summary">{e.summary}</p>
-                <ul className="log__notes">
-                  {e.notes.map((n) => (
-                    <li key={n}>{n}</li>
-                  ))}
-                </ul>
-              </li>
-            ))}
-          </ol>
-        </details>
+            <span className="panel__toggle-title">Build log</span>
+          </span>
+          <span className="panel__chevron">{logOpen ? '▴' : '▾'}</span>
+        </button>
+
+        {logOpen && (
+          <div className="panel__body">
+            <ol className="log">
+              {CHANGELOG.map((e, i) => (
+                <li key={e.title} className={`log__item${i === 0 ? ' log__item--now' : ''}`}>
+                  <div className="log__head">
+                    <h3 className="log__title">{e.title}</h3>
+                    {i === 0 ? <span className="log__badge">Latest</span> : null}
+                  </div>
+                  <ul className="log__notes">
+                    {e.notes.map((n) => (
+                      <li key={n}>{n}</li>
+                    ))}
+                  </ul>
+                </li>
+              ))}
+            </ol>
+          </div>
+        )}
       </section>
 
       <footer className="ftr">

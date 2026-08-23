@@ -38,6 +38,15 @@ interface Props {
   onSpinEnd: () => void;
   /** Fired repeatedly while the strip is moving, for the ratchet sound. */
   onTick?: () => void;
+  /**
+   * The tier bounds for this column, rendered under it.
+   *
+   * These used to live in the settings panel, a long way from the reel they
+   * govern. Under the column you can see what you are narrowing while you
+   * narrow it. Columns with no tier filter — map, operator, weapon — pass
+   * nothing and get nothing.
+   */
+  range?: React.ReactNode;
 }
 
 const rand = <T,>(list: T[]): T | undefined => list[Math.floor(Math.random() * list.length)];
@@ -83,6 +92,7 @@ export function SlotReel({
   onNudge,
   onSpinEnd,
   onTick,
+  range,
 }: Props) {
   // The strip is the column of cells we slide behind the window. Index 1 is
   // the payline at rest, so a static strip is [above, current, below].
@@ -439,6 +449,8 @@ export function SlotReel({
       >
         Spin
       </button>
+
+      {range}
 
       {slot.hint && <p className="reel__hint">{slot.hint}</p>}
     </div>

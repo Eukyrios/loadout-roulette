@@ -30,6 +30,11 @@ interface Props {
   /** Difficulties that can be set by hand from the crown readout. */
   modeOptions: DependencyOption[];
   onPickMode: (id: string) => void;
+  /** Presets, likewise — same control, same place. */
+  presetOptions: DependencyOption[];
+  onPickPreset: (id: string) => void;
+  /** The tier bounds for a column, rendered under it. */
+  rangeFor: (slotId: string) => React.ReactNode;
 }
 
 /**
@@ -54,6 +59,9 @@ export const SlotMachine = forwardRef<HTMLDivElement, Props>(function SlotMachin
     anySpinning,
     modeOptions,
     onPickMode,
+    presetOptions,
+    onPickPreset,
+    rangeFor,
   },
   coinSlotRef,
 ) {
@@ -217,10 +225,16 @@ export const SlotMachine = forwardRef<HTMLDivElement, Props>(function SlotMachin
           <span className="machine__badge-main">2 · Roll your kit</span>
         </div>
         <div className="machine__readouts">
-          <div className="machine__mode machine__mode--preset">
-            <span className="machine__mode-label">Preset</span>
-            <span className="machine__mode-value">{preset}</span>
-          </div>
+          {/* The preset list used to be a grid buried in the settings panel.
+              It is the same kind of choice as the difficulty, so it is the
+              same control, in the same place. */}
+          <DependencyChip
+            label="Preset"
+            value={preset}
+            options={presetOptions}
+            onPick={onPickPreset}
+            tone="preset"
+          />
           {/* Readable as before, but now also settable: you can start here
               instead of at the roulette wheel. */}
           <DependencyChip
@@ -256,6 +270,7 @@ export const SlotMachine = forwardRef<HTMLDivElement, Props>(function SlotMachin
                 onNudge={(dir) => onNudge(slot.id, dir)}
                 onSpinEnd={() => onSpinEnd(slot.id)}
                 onTick={onTick}
+                range={rangeFor(slot.id)}
               />
             ))}
           </div>
