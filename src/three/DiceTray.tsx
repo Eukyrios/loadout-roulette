@@ -29,7 +29,7 @@ interface Props {
 
 const DIE = 1.15;
 const FLOOR = DIE / 2;
-const ROLL_MS = 2300;
+const ROLL_MS = 1500;
 
 /* --- tray dimensions, also used to frame the camera --------------------- */
 const TRAY_W = 9; // felt, x

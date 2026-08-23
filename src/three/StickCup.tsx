@@ -45,7 +45,7 @@ const CUP_BOT_R = 1.18;
 const FLOOR = 0.12;
 const RISE = 2.05;
 
-const DRAW_MS = 2700;
+const DRAW_MS = 1750;
 /** Fraction of the animation spent shaking before the stick lifts. */
 const SHAKE = 0.62;
 

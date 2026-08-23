@@ -68,7 +68,7 @@ const HAND_SCALE = 0.72;
 const HAND_GAP = 1.42;
 const HAND_Z = 2.5;
 
-const DRAW_MS = 1250;
+const DRAW_MS = 850;
 
 /**
  * The opening: the deck arrives as a squared-up pile, gets riffled, and only

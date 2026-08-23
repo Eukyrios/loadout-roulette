@@ -65,7 +65,7 @@ const RING_IN = 0.24;
 const RING_OUT = 0.97;
 
 /** How long the spin lasts, and how many turns it makes before landing. */
-const SPIN_S = 4.8;
+const SPIN_S = 3.2;
 const TURNS = 4;
 
 /**

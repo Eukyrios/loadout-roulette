@@ -21,7 +21,7 @@ import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
 import * as THREE from 'three';
 import { POCKET_COLORS, WHEEL_POCKETS } from '../data/deltaforce';
 import { frameCamera } from './frame';
-import { animMs } from '../engine/settings';
+import { animMs, animSpeed } from '../engine/settings';
 import { renderLoop } from './renderLoop';
 
 export interface RouletteHandle {
@@ -108,7 +108,7 @@ const FIT_RADIUS = R_BOWL - 0.75;
 /** Top of the rim — the highest thing that must stay in frame. */
 const FIT_HEIGHT = Y_TRACK + 0.8;
 
-const SPIN_MS = 6200;
+const SPIN_MS = 4000;
 const WHEEL_TURNS = 5;
 const BALL_TURNS = 13;
 const IDLE_SPEED = 0.09; // rad/s when at rest
@@ -393,8 +393,6 @@ export const RouletteWheel = forwardRef<RouletteHandle, Props>(function Roulette
     const mount = mountRef.current;
     if (!mount) return;
 
-    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-
     /* ---- renderer -------------------------------------------------- */
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -649,12 +647,15 @@ export const RouletteWheel = forwardRef<RouletteHandle, Props>(function Roulette
        * in between — which hand-interpolating a camera position would not.
        */
       {
-        // Reduced motion shortens the move rather than cancelling it. Cutting
-        // it entirely leaves the wheel dead still on any machine with system
-        // animations turned off — which is most Windows boxes people have
-        // tuned — and this camera is the whole point of the stage.
-        const span = camTarget > camU ? (reduced ? 0.45 : CAM_IN) : reduced ? 0.3 : CAM_OUT;
-        const step = dt / span;
+        // Scaled by the length setting like everything else. The ball waits
+        // for this move to finish before it goes, so a camera pinned to real
+        // seconds is a fixed prefix on every spin — at a short setting it was
+        // a third of the whole stage, which is why the slider looked like it
+        // barely touched this one. The system preference is not consulted
+        // here any more either; it picks the slider's starting point, and the
+        // slider decides the rest.
+        const span = camTarget > camU ? CAM_IN : CAM_OUT;
+        const step = (dt * animSpeed()) / span;
         camU = camTarget > camU ? Math.min(camTarget, camU + step) : Math.max(camTarget, camU - step);
       }
 

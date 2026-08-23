@@ -67,12 +67,12 @@ const OPEN_SCALE = 1.55;
 const SHELL_COLORS = [0xe04a3a, 0x0ff796, 0x4aa8e0, 0xe0a23a, 0xa86ae0, 0xff7ab0, 0x7ae0d0];
 
 /* Seconds, cumulative. */
-const T_SHAKE = 1.1;
-const T_DROP = 1.15;
-const T_SETTLE = 0.5;
-const T_RISE = 1.0;
-const T_OPEN = 0.55;
-const T_FLY = 0.9;
+const T_SHAKE = 0.72;
+const T_DROP = 0.75;
+const T_SETTLE = 0.33;
+const T_RISE = 0.65;
+const T_OPEN = 0.36;
+const T_FLY = 0.6;
 const T_TOTAL = T_SHAKE + T_DROP + T_SETTLE + T_RISE + T_OPEN + T_FLY;
 
 const CAM_TILT = (46 * Math.PI) / 180;

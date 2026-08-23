@@ -3,6 +3,7 @@
  */
 
 import type { Entry, FilterState, Roll, SlotSpec } from '../data/types';
+import { entryImageSrc } from '../data/icons';
 import { SLOTS } from '../data/slots';
 
 export const rangeKey = (slotId: string, attr: string) => `${slotId}:${attr}`;
@@ -28,7 +29,7 @@ export function defaultFilterState(): FilterState {
       }
     }
   }
-  return { ranges, multi };
+  return { ranges, multi, artOnly: true };
 }
 
 /** The bounds a range filter is allowed to move between for a given slot. */
@@ -52,6 +53,10 @@ export function poolFor(slot: SlotSpec, state: FilterState, parent?: Entry | nul
       : slot.entries;
 
   return gated.filter((entry) => {
+    // Checked before the per-slot filters because it applies to every column,
+    // including the three that carry no filters of their own. `!== false` so a
+    // filter set saved before this flag existed gets it on — see FilterState.
+    if (state.artOnly !== false && !entryImageSrc(entry.id)) return false;
     for (const f of slot.filters ?? []) {
       const value = entry.attrs?.[f.attr];
       if (f.kind === 'range') {

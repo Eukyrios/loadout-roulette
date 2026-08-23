@@ -39,40 +39,22 @@ export interface AppSettings {
 export const LENGTH_MIN = 0.5;
 export const LENGTH_MAX = 5;
 
-/**
- * The system's own preference for less motion.
- *
- * It picks the DEFAULT length and nothing more. It used to clamp the value
- * instead, which quietly broke the control it was meant to inform: the clamp
- * sat at 0.385 and the slider bottoms out at 0.5, so every setting collapsed
- * to the same number and neither the slider nor the rarity stretch could move
- * anything. A preference should choose where a control starts, not overrule
- * where its owner puts it — and Animation off, one button along, is still
- * there for anyone who wants no motion at all.
- */
-const prefersReduced = () =>
-  typeof window !== 'undefined' &&
-  window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-
 const KEY = 'lr:settings';
 
-const DEFAULTS: AppSettings = { animate: true, length: 2.5, sound: true, volume: 0.85 };
-
-/** What the length starts at, before anyone has touched the slider. */
-const defaultLength = () => (prefersReduced() ? LENGTH_MIN : DEFAULTS.length);
+const DEFAULTS: AppSettings = { animate: true, length: 2, sound: true, volume: 0.85 };
 
 function load(): AppSettings {
   if (typeof window === 'undefined') return DEFAULTS;
   try {
     const raw = window.localStorage.getItem(KEY);
-    if (!raw) return { ...DEFAULTS, length: defaultLength() };
+    if (!raw) return DEFAULTS;
     const got = JSON.parse(raw) as Partial<AppSettings>;
     return {
       animate: typeof got.animate === 'boolean' ? got.animate : DEFAULTS.animate,
       length:
         typeof got.length === 'number' && got.length >= LENGTH_MIN && got.length <= LENGTH_MAX
           ? got.length
-          : defaultLength(),
+          : DEFAULTS.length,
       sound: typeof got.sound === 'boolean' ? got.sound : DEFAULTS.sound,
       volume:
         typeof got.volume === 'number' && got.volume >= 0 && got.volume <= 1
@@ -124,8 +106,17 @@ function animLength(): number {
   // Not zero and not a skip — see above. A sixtieth of the written length puts
   // every sequence inside a frame while still running it end to end.
   if (!state.animate) return 1 / 60;
-  // Whatever the slider says, with nothing second-guessing it. See
-  // prefersReduced for why this is not clamped.
+  /*
+   * Whatever the slider says, with nothing second-guessing it.
+   *
+   * A system preference for less motion used to clamp this, and the clamp sat
+   * below the slider's own minimum — so on any machine with that preference
+   * set, neither the control nor the rarity stretch could move anything at
+   * all. It then briefly chose the starting value instead, which was quieter
+   * but still meant two people got different defaults from the same build.
+   * The switch marked Animation, one button along the same bar, is the honest
+   * place for that decision, and it is always visible.
+   */
   return state.length;
 }
 

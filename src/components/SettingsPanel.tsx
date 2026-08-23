@@ -224,6 +224,24 @@ export function SettingsPanel({ open, onToggle, filters, onFilters, onReset }: P
               }),
           )}
 
+          {/* Not a per-slot filter, so it sits on its own below the pickers. */}
+          <Block title="Pictures">
+            <label className="panel__check">
+              <input
+                type="checkbox"
+                checked={filters.artOnly !== false}
+                onChange={(e) => onFilters({ ...filters, artOnly: e.target.checked })}
+              />
+              <span>
+                Only items with a picture
+                <em className="panel__checkNote">
+                  Skips the ones that would come up as a name. Costs you 13 of 183:
+                  two helmets, four vests, four chest rigs and three bags.
+                </em>
+              </span>
+            </label>
+          </Block>
+
           <div className="panel__foot">
             <button type="button" className="btn btn--ghost" onClick={onReset}>
               Reset all filters

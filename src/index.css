@@ -1912,6 +1912,32 @@ body {
   font-weight: 600;
 }
 
+/* The one filter that is a plain on/off rather than a range or a chip row. */
+.panel__check {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  font-size: 13px;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.panel__check input {
+  margin-top: 2px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.panel__checkNote {
+  display: block;
+  margin-top: 2px;
+  font-family: var(--mono);
+  font-size: 10px;
+  font-style: normal;
+  line-height: 1.45;
+  color: var(--text-faint);
+}
+
 .panel__foot {
   padding-top: 16px;
   border-top: 1px solid var(--line);

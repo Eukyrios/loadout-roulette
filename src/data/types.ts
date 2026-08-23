@@ -84,4 +84,17 @@ export interface FilterState {
   ranges: Record<string, [number, number]>;
   /** `${slotId}:${attr}` -> allowed values */
   multi: Record<string, string[]>;
+  /**
+   * Drop entries that have no picture.
+   *
+   * ON unless explicitly switched off — note the `!== false` reads rather than
+   * plain truthiness. A filter set remembered from before this flag existed
+   * has no key for it at all, and those people should get the same machine as
+   * everyone else rather than silently keeping the old behaviour; only an
+   * actual visit to the checkbox writes `false`.
+   *
+   * It costs 13 of 183 entries. The name-only cells are a designed fallback
+   * rather than damage, so this is a preference, not a repair.
+   */
+  artOnly?: boolean;
 }
