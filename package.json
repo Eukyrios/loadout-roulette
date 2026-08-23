@@ -5,13 +5,14 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "tsc -b && vite build && node tools/check-mirrors.mjs",
     "lint": "oxlint",
     "preview": "vite preview",
     "smoke": "npm run build && node smoke.mjs",
     "verify:dice": "node verify-dice.mjs",
     "test": "node verify-dice.mjs && npm run smoke",
-    "icons": "node tools/fetch-images.mjs"
+    "icons": "node tools/fetch-images.mjs",
+    "gen:icons": "node tools/gen-icons.mjs"
   },
   "dependencies": {
     "@types/three": "^0.185.4",

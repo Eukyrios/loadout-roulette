@@ -19,14 +19,25 @@ export const TIER_RGB: Record<number, [number, number, number]> = {
   6: [224, 80, 58],
 };
 
-/** What each grade is called in game, for labels. */
+/**
+ * What each grade is called, everywhere it is written down.
+ *
+ * The colour, not a word for the colour. Nobody in a raid says "that's an
+ * Epic backpack" — they say purple. The ladder is already colour-coded on
+ * every surface here, so naming the grades after the colours makes the label
+ * and the thing it labels say the same word, and there is no second vocabulary
+ * to learn on the way in.
+ *
+ * Order matches TIER_RGB above: 1 grey, 2 green, 3 blue, 4 purple, 5 gold,
+ * 6 red. Change one and change the other.
+ */
 export const TIER_NAME: Record<number, string> = {
-  1: 'Common',
-  2: 'Uncommon',
-  3: 'Rare',
-  4: 'Epic',
-  5: 'Legendary',
-  6: 'Exotic',
+  1: 'Gray',
+  2: 'Green',
+  3: 'Blue',
+  4: 'Purple',
+  5: 'Gold',
+  6: 'Red',
 };
 
 /** Tier as `#rrggbb`. Unknown tiers fall back to the neutral grey of tier 1. */

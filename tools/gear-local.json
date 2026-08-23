@@ -1,0 +1,31 @@
+{
+  "_note": [
+    "Entry ids whose picture is a FILE COMMITTED TO THIS REPO under public/gear/,",
+    "not something tools/fetch-images.mjs downloads. They were supplied by hand",
+    "because no source publishes them.",
+    "",
+    "Keep this list in step with what is actually in public/gear/ and has no key",
+    "in gear-sources.json. tools/gen-icons.mjs unions the two to build",
+    "src/data/icons.ts, and tools/check-mirrors.mjs subtracts these so a full",
+    "mirror does not report itself short.",
+    "",
+    "Spellings were corrected on the way in: gismo -> gizmo, shepered ->",
+    "shepherd, synerva -> sineva, toxic -> toxik. src/data/deltaforce.ts is the",
+    "authority for how an entry is named."
+  ],
+  "ids": [
+    "d-wolf",
+    "gizmo",
+    "hackclaw",
+    "luna",
+    "nox",
+    "raptor",
+    "shepherd",
+    "sineva",
+    "stinger",
+    "tempest",
+    "toxik",
+    "uluru",
+    "vyron"
+  ]
+}

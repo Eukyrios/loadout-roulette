@@ -54,6 +54,27 @@ interface Props {
 
 const rand = <T,>(list: T[]): T | undefined => list[Math.floor(Math.random() * list.length)];
 
+/**
+ * Entries whose picture would not load, so the cell can fall back to the name.
+ *
+ * This is not defensive padding. The pictures are local files that a build step
+ * has to put in public/gear/, and a build made before that step has run says
+ * every entry has one when none of them do. Hiding the broken image left the
+ * cell completely blank — worse than the text it replaced — so a miss has to
+ * put the name back rather than just get out of the way.
+ *
+ * Module-level and shared by every column: the same item can be in more than
+ * one strip, and a file that 404'd once will 404 again. Subscribers are woken
+ * once per newly-failed id, not once per failed <img>.
+ */
+const MISSING = new Set<string>();
+const watchers = new Set<() => void>();
+function missed(id: string) {
+  if (MISSING.has(id)) return;
+  MISSING.add(id);
+  watchers.forEach((w) => w());
+}
+
 /** Checked per nudge rather than cached, so toggling the OS setting takes
  *  effect without a reload. */
 const reducedMotion = () =>
@@ -105,6 +126,16 @@ export function SlotReel({
   const [moveMs, setMoveMs] = useState(0);
   const [blur, setBlur] = useState(false);
   const [flash, setFlash] = useState(false);
+
+  // Re-render this column when any picture anywhere turns out to be missing.
+  const [, bump] = useState(0);
+  useEffect(() => {
+    const w = () => bump((n) => n + 1);
+    watchers.add(w);
+    return () => {
+      watchers.delete(w);
+    };
+  }, []);
 
   /** The sliding column. Needed so a nudge can settle on its transitionend. */
   const stripRef = useRef<HTMLDivElement>(null);
@@ -412,7 +443,7 @@ export function SlotReel({
           style={stripStyle}
         >
           {strip.map((item, i) => {
-            const icon = empty ? null : entryImageSrc(item?.id);
+            const icon = empty || (item && MISSING.has(item.id)) ? null : entryImageSrc(item?.id);
             return (
             <div
               className={`cell${icon ? ' cell--art' : ''}`}
@@ -429,12 +460,13 @@ export function SlotReel({
                 <img
                   className="cell__icon"
                   src={icon}
-                  alt={item?.name ?? ''}
+                  /* Decorative. The name is announced by .reel__value, which
+                     is the live region, so repeating it here would read the
+                     whole strip out twice. */
+                  alt=""
                   loading="lazy"
                   decoding="async"
-                  onError={(e) => {
-                    e.currentTarget.style.visibility = 'hidden';
-                  }}
+                  onError={() => item && missed(item.id)}
                 />
               ) : (
                 /* No picture published for this one — maps, operators and the

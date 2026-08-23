@@ -6,6 +6,7 @@
  */
 
 import type { Entry, SlotSpec } from './types';
+import { TIER_NAME } from './rarity';
 import {
   BACKPACKS,
   HELMETS,
@@ -42,7 +43,9 @@ const tierFilter = (label = 'Tier') =>
     label,
     min: TIER_MIN,
     max: TIER_MAX,
-    format: (v: number) => `Tier ${v}`,
+    // The bound reads as the colour it selects. The number is still what the
+    // filter compares against; only the label changed.
+    format: (v: number) => TIER_NAME[v] ?? `Tier ${v}`,
   });
 
 /**

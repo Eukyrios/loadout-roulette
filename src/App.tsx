@@ -28,7 +28,7 @@ import {
   ammoImageSrc,
 } from './data/ammo';
 import { CHANGELOG } from './data/changelog';
-import { TIER_NAME, ammoTier } from './data/rarity';
+import { TIER_NAME, ammoTier, tierHex } from './data/rarity';
 import { SLOTS } from './data/slots';
 import type { Entry, FilterState, Roll } from './data/types';
 import { defaultFilterState, rangeBounds, rangeKey, resolvePools } from './engine/filters';
@@ -623,6 +623,10 @@ export default function App() {
             slot={slot}
             label={f.label}
             format={f.format ?? String}
+            // The bounds are named after colours now, so each end is printed
+            // in the colour it names. Only the rarity ranges get this; any
+            // other range keeps the accent.
+            colorFor={f.attr === 'tier' ? (v) => tierHex(v) : undefined}
             bounds={bounds}
             value={filters.ranges[key] ?? bounds}
             onChange={(next) =>
@@ -1040,9 +1044,18 @@ export default function App() {
 
             <p className="stage__hint">
               Six rounds, dealt from every caliber in the game. Spin it and the pawl
-              at the top picks one. It does not check whether the round fits what you
-              rolled — that is coming; for now it is a lucky dip and a 12 Gauge slug
-              for your MP5 is fair game. Spinning again deals a new wheel.
+              at the top picks one. Spinning again deals a new wheel.
+            </p>
+
+            <p className="wip">
+              <strong className="wip__tag">Work in progress</strong>
+              Caliber matching is not working yet — the wheel does not check whether
+              the round fits the gun you rolled, so it is a lucky dip across every
+              caliber in the game and a 12 Gauge slug for your MP5 is fair game. Name
+              a caliber in the box above and the wheel narrows to that one, which is
+              the way round it works until the check is in. The colour on each wedge
+              is the round&rsquo;s real tier — the spin is honest, it is the
+              shortlist that is not.
             </p>
 
             <button
@@ -1111,7 +1124,7 @@ export default function App() {
                     <li
                       key={`${name}-${i}`}
                       className={`keys__item${tier ? ` keys__item--t${tier}` : ''}`}
-                      title={tier ? TIER_NAME[tier] : 'Grade not published'}
+                      title={tier ? TIER_NAME[tier] : 'Color not published'}
                     >
                       {name}
                     </li>

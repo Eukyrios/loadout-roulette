@@ -27,6 +27,7 @@ export function RangeControl({
   slot,
   label,
   format,
+  colorFor,
   bounds,
   value,
   onChange,
@@ -34,6 +35,15 @@ export function RangeControl({
   slot: SlotSpec;
   label: string;
   format: (v: number) => string;
+  /**
+   * Optional ink for a bound, given its value.
+   *
+   * Only meaningful once a bound is named after a colour: printing the word
+   * "Gold" in the interface green says two different things at once. Left
+   * undefined the readout takes the accent, the way every other number here
+   * does.
+   */
+  colorFor?: (v: number) => string | undefined;
   bounds: [number, number];
   value: [number, number];
   onChange: (next: [number, number]) => void;
@@ -52,7 +62,13 @@ export function RangeControl({
       <div className="dual__head">
         <span className="dual__label">{label}</span>
         <span className="dual__value">
-          {lo === hi ? format(lo) : `${format(lo)} – ${format(hi)}`}
+          <span style={{ color: colorFor?.(lo) }}>{format(lo)}</span>
+          {lo !== hi && (
+            <>
+              <span className="dual__dash"> – </span>
+              <span style={{ color: colorFor?.(hi) }}>{format(hi)}</span>
+            </>
+          )}
         </span>
       </div>
 

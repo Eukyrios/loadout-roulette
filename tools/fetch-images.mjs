@@ -12,7 +12,7 @@
  *
  *   tools/att-sources.json    414 attachment pictures  -> public/att/<id>.png
  *   tools/ammo-sources.json    59 ammunition pictures  -> public/ammo/<id>.png
- *   tools/gear-sources.json   124 gun and gear icons   -> public/gear/<id>.png
+ *   tools/gear-sources.json   124 reel-entry icons     -> public/gear/<id>.png
  *
  * Run it once and the pictures appear. Already-downloaded files are skipped,
  * so re-running only fetches what is new:
@@ -34,7 +34,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const SETS = [
   { name: 'attachments', map: 'tools/att-sources.json', out: 'public/att', min: 400 },
   { name: 'ammunition', map: 'tools/ammo-sources.json', out: 'public/ammo', min: 50 },
-  { name: 'gear and guns', map: 'tools/gear-sources.json', out: 'public/gear', min: 100 },
+  { name: 'reel entries', map: 'tools/gear-sources.json', out: 'public/gear', min: 100 },
 ];
 
 async function download(url) {

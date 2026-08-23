@@ -19,6 +19,24 @@ export interface LogEntry {
 
 export const CHANGELOG: LogEntry[] = [
   {
+    title: 'Operator portraits',
+    notes: [
+      'Thirteen of the sixteen operators now have their portrait in the reel, supplied by hand rather than downloaded. Vlinder, N-Two and Morse still read as their name.',
+      'These are committed to the project instead of mirrored, so they are there on a fresh clone with nothing to run first. A second list, tools/gear-local.json, marks which ones those are, and the set the app draws from is generated from both lists rather than kept by hand — the two drifting apart is what puts a 404 in the console for every cell.',
+      'A cell whose picture will not load now puts the name back instead of going blank. It used to hide the broken image and leave nothing at all, which looked worse than the text it had replaced.',
+      'The build ends by saying how many pictures are missing and what to run, so a picture-less build cannot be deployed by accident.',
+    ],
+  },
+  {
+    title: 'Tiers named by their colour',
+    notes: [
+      'A tier is called by its colour now — gray, green, blue, purple, gold, red — everywhere one is written: the note under a reel item, the bounds above each column, the keycard faces, the round under the ammunition wheel and the preset descriptions. The ladder was already colour-coded on every surface, so the label and the thing it labels finally say the same word. The word for the ladder itself is still Tier.',
+      'Nothing about the filtering changed — the bounds still compare the same 1-6 numbers underneath.',
+      'The ammunition wheel says plainly that it does not check the round against your gun yet, in the same place the capsule machine admits the same thing about attachments.',
+      'A second picture source was tried for the entries that have no artwork, and taken back out: its files would not download. Coverage stays at 124, and the rest of the entries read as their name.',
+    ],
+  },
+  {
     title: 'Pictures only in the strip, and no prices',
     notes: [
       'A reel cell with a picture is now just the picture, filling the cell. The name under the window is the one that counts; a name in every cell competed with it and made a spin read as a list scrolling past. Cells with no picture published still carry their name.',
@@ -78,7 +96,7 @@ export const CHANGELOG: LogEntry[] = [
     ],
   },
   {
-    title: 'Rarity colour unified',
+    title: 'Tier colour unified',
     notes: [
       'One 1-6 ladder shared by the reels, the keycards and the ammunition wheel.',
       'Keycards carry their grade on the header, border and face; all 59 across the four mapped locations are graded.',

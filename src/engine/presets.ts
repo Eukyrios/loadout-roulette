@@ -35,13 +35,13 @@ export const PRESETS: Preset[] = [
   {
     id: 'budget',
     name: 'Budget run',
-    blurb: 'Low-tier gear only. Cheap to lose.',
+    blurb: 'Gray to blue only. Cheap to lose.',
     apply: (s) => setTiers(s, 1, 3),
   },
   {
     id: 'normal',
     name: 'Normal',
-    blurb: 'Mid-tier gear, no snipers or specials.',
+    blurb: 'Blue to gold, no snipers or specials.',
     apply: (s) => ({
       ...setTiers(s, 3, 5),
       multi: {
@@ -53,7 +53,7 @@ export const PRESETS: Preset[] = [
   {
     id: 'full-send',
     name: 'Full send',
-    blurb: 'Top-tier armor only. Bring the good stuff.',
+    blurb: 'Gold and red armor only. Bring the good stuff.',
     apply: (s) => setTiers(s, 5, 6),
   },
   {

@@ -13,6 +13,7 @@
  */
 
 import type { Entry } from './types';
+import { TIER_NAME } from './rarity';
 
 /* -------------------------------------------------------------------------- */
 /*  Operators                                                                  */
@@ -51,9 +52,9 @@ export const OPERATORS: Entry[] = [
  * offer the rolled tier can come up. See `MAPS[].attrs.modes` below.
  */
 export const MODES: Entry[] = [
-  { id: 'easy', name: 'Easy', note: 'Helmet & vest Tier 4 max', attrs: { color: 'red' } },
-  { id: 'normal', name: 'Normal', note: 'No tier caps · kit value floor', attrs: { color: 'black' } },
-  { id: 'hard', name: 'Hard', note: 'No tier caps · steep value floor', attrs: { color: 'green' } },
+  { id: 'easy', name: 'Easy', note: 'Helmet & vest purple max', attrs: { color: 'red' } },
+  { id: 'normal', name: 'Normal', note: 'No tier cap · kit value floor', attrs: { color: 'black' } },
+  { id: 'hard', name: 'Hard', note: 'No tier cap · steep value floor', attrs: { color: 'green' } },
 ];
 
 /**
@@ -311,7 +312,9 @@ export const TIER_MAX = 6;
 const g = (id: string, name: string, tier: number): Entry => ({
   id,
   name,
-  note: `Tier ${tier}`,
+  // The grade's colour name, not "Tier N". The number is still what filters
+  // and caps are written against — it is only the label that changed.
+  note: TIER_NAME[tier] ?? `Tier ${tier}`,
   attrs: { tier },
 });
 

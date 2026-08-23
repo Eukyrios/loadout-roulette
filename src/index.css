@@ -2298,8 +2298,15 @@ body {
   font-family: var(--mono);
   font-size: 11px;
   font-weight: 700;
+  /* The fallback when a range has no colour of its own. A rarity range
+     overrides this per end, in the colour that end is named after. */
   color: var(--accent);
   white-space: nowrap;
+}
+
+/* The dash between the two ends belongs to neither of them. */
+.dual__dash {
+  color: var(--text-faint);
 }
 
 /* The two inputs are stacked on this, so it owns the height. */
