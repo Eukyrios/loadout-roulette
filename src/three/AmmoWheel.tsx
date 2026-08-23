@@ -64,8 +64,16 @@ const RING_IN = 0.24;
 const RING_OUT = 0.97;
 
 /** How long the spin lasts, and how many turns it makes before landing. */
-const SPIN_S = 4.2;
+const SPIN_S = 4.8;
 const TURNS = 4;
+
+/**
+ * The last stretch, where the pawl is dropping between pegs rather than
+ * skating over them, and how far the wheel rocks in the detent as it does.
+ * Amplitude is a fraction of one wedge, so it scales with how many are on.
+ */
+const SETTLE_S = 1.15;
+const SETTLE_AMP = 0.17;
 
 /**
  * Tilted back, so the wheel reads as an object with thickness rather than a
@@ -75,8 +83,14 @@ const TURNS = 4;
 const CAM_TILT = (74 * Math.PI) / 180;
 
 const clamp01 = (u: number) => (u < 0 ? 0 : u > 1 ? 1 : u);
-/** Slows the way a weighted wheel does: fast, then a long tail. */
-const spinEase = (u: number) => 1 - Math.pow(1 - u, 3.4);
+/**
+ * Slows the way a weighted wheel does: fast, then a long crawl.
+ *
+ * Friction alone would be a quadratic and stop dead; a real wheel has bearing
+ * drag as well, which stretches the last turn out far longer than the first.
+ * The high exponent is that tail.
+ */
+const spinEase = (u: number) => 1 - Math.pow(1 - u, 3.9);
 
 /** A round's colour: its rarity grade, from the one shared palette. */
 const wedgeColor = (a: Ammo): string => tierHex(ammoTier(a.pen, a.id));
@@ -200,6 +214,8 @@ export const AmmoWheel = forwardRef<AmmoWheelHandle, Props>(function AmmoWheel(
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.15; // matched to the other scenes
     mount.appendChild(renderer.domElement);
@@ -222,17 +238,53 @@ export const AmmoWheel = forwardRef<AmmoWheelHandle, Props>(function AmmoWheel(
       return x;
     };
 
-    scene.add(new THREE.AmbientLight(0xffffff, 0.62));
-    const key = new THREE.DirectionalLight(0xffffff, 1.35);
-    key.position.set(1.6, 3, 7);
+    /**
+     * The same rig every other canvas uses, so the set reads as one room:
+     * cool ambient, a warm key from the upper left, and a warm/cool pair of
+     * point lights for the fill.
+     */
+    scene.add(new THREE.AmbientLight(0x8899bb, 1.05));
+    const key = new THREE.DirectionalLight(0xfff2dd, 2.0);
+    key.position.set(-5, 8, 9);
+    key.castShadow = true;
+    key.shadow.mapSize.set(1024, 1024);
+    key.shadow.bias = -0.0005;
+    key.shadow.normalBias = 0.02;
+    key.shadow.camera.near = 1;
+    key.shadow.camera.far = 40;
+    key.shadow.camera.left = -8;
+    key.shadow.camera.right = 8;
+    key.shadow.camera.top = 8;
+    key.shadow.camera.bottom = -8;
     scene.add(key);
-    const rim = new THREE.DirectionalLight(0x0ff796, 0.4);
-    rim.position.set(-4, 1, 3);
-    scene.add(rim);
+    const warm = new THREE.PointLight(0xffb056, 60, 30, 2);
+    warm.position.set(4, 4, 7);
+    scene.add(warm);
+    const cool = new THREE.PointLight(0x5f8dff, 34, 30, 2);
+    cool.position.set(-4, -2, 6);
+    scene.add(cool);
 
     /* -------------------------------------------------------------- wheel */
+    /**
+     * Green baize behind the wheel.
+     *
+     * The other stages are objects on a table; this one is mounted on a board,
+     * so the felt goes behind it rather than under it. Same colour as the card
+     * fan's baize, and wider than the camera ever frames, so it reads as the
+     * wall of the room rather than as a disc floating in the dark.
+     */
+    const cloth = new THREE.Mesh(
+      keep(new THREE.CircleGeometry(WHEEL_R * 4, 72)),
+      keep(new THREE.MeshStandardMaterial({ color: 0x16342a, roughness: 0.94, metalness: 0.02 })),
+    );
+    cloth.position.z = -1.1;
+    cloth.receiveShadow = true;
+    scene.add(cloth);
+
+
     /** Everything that turns. The pawl is deliberately NOT in here. */
     const wheel = new THREE.Group();
+    wheel.castShadow = true;
     scene.add(wheel);
 
     // A drum rather than a disc: deep enough that the tilt shows its side.
@@ -249,10 +301,16 @@ export const AmmoWheel = forwardRef<AmmoWheelHandle, Props>(function AmmoWheel(
     const face = new THREE.Mesh(keep(new THREE.CircleGeometry(WHEEL_R, 96)), faceMat);
     wheel.add(face);
 
-    const brass = keep(
-      new THREE.MeshStandardMaterial({ color: 0xb8974c, metalness: 0.45, roughness: 0.3 }),
+    // Turned wood for the rim, the same mahogany as the table rails, with
+    // gold only on the parts that are meant to catch the eye: the pegs and the
+    // pointer.
+    const wood = keep(
+      new THREE.MeshStandardMaterial({ color: 0x5b3a22, metalness: 0.12, roughness: 0.6 }),
     );
-    const ring = new THREE.Mesh(keep(new THREE.TorusGeometry(WHEEL_R * 1.02, 0.11, 14, 96)), brass);
+    const gold = keep(
+      new THREE.MeshStandardMaterial({ color: 0xd9ae4a, metalness: 0.5, roughness: 0.28 }),
+    );
+    const ring = new THREE.Mesh(keep(new THREE.TorusGeometry(WHEEL_R * 1.02, 0.11, 14, 96)), wood);
     ring.position.z = 0.02;
     wheel.add(ring);
 
@@ -271,7 +329,7 @@ export const AmmoWheel = forwardRef<AmmoWheelHandle, Props>(function AmmoWheel(
       if (n <= 0) return;
       for (let i = 0; i < n; i++) {
         const a = -Math.PI / 2 + (i * Math.PI * 2) / n;
-        const peg = new THREE.Mesh(pegGeo, brass);
+        const peg = new THREE.Mesh(pegGeo, gold);
         peg.position.set(Math.cos(a) * WHEEL_R * 1.02, -Math.sin(a) * WHEEL_R * 1.02, 0.13);
         pegs.add(peg);
       }
@@ -294,23 +352,12 @@ export const AmmoWheel = forwardRef<AmmoWheelHandle, Props>(function AmmoWheel(
     const pawl = new THREE.Group();
     const blade = new THREE.Mesh(
       keep(new THREE.ConeGeometry(0.24, 0.72, 3)),
-      keep(new THREE.MeshStandardMaterial({ color: 0xf2f6f8, metalness: 0.3, roughness: 0.35 })),
+      gold,
     );
     // Nose down, into the rim.
     blade.rotation.z = Math.PI;
     blade.position.y = WHEEL_R * 0.99;
     pawl.add(blade);
-    const boss = new THREE.Mesh(
-      keep(new THREE.CylinderGeometry(0.13, 0.13, 0.18, 16)),
-      keep(new THREE.MeshStandardMaterial({ color: 0x0ff796, metalness: 0.2, roughness: 0.5 })),
-    );
-    boss.rotation.x = Math.PI / 2;
-    // Tucked in behind the blade rather than standing off above it. The frame
-    // has to be symmetric about the hub for the wheel to sit dead centre, so
-    // every unit the pawl adds above the rim is a unit of empty felt added
-    // below it, and the wheel shrinks to fit both.
-    boss.position.y = WHEEL_R * 1.14;
-    pawl.add(boss);
     pawl.position.z = 0.2;
     scene.add(pawl);
 
@@ -332,7 +379,9 @@ export const AmmoWheel = forwardRef<AmmoWheelHandle, Props>(function AmmoWheel(
      * centred by construction — a lopsided box is what pushed the old dart
      * board off centre, and with a tilted camera it does not take much.
      */
-    const FIT = Math.max(WHEEL_R * 1.09 + 0.1, WHEEL_R * 1.14 + 0.14);
+    // The pointer's tip reaches a little past the rim, and it wants clearance
+    // rather than to graze the top edge of the panel.
+    const FIT = Math.max(WHEEL_R * 1.09 + 0.1, WHEEL_R * 0.99 + 0.62);
 
     const reframe = () => {
       frameCamera(
@@ -352,6 +401,8 @@ export const AmmoWheel = forwardRef<AmmoWheelHandle, Props>(function AmmoWheel(
     let resolveRun: (() => void) | null = null;
     let lastWedge = -1;
     let count = 0;
+    /** How far the pawl is currently deflected, in radians. Decays to zero. */
+    let kick = 0;
     let dirty = true;
     let loop: ReturnType<typeof renderLoop> | null = null;
 
@@ -403,6 +454,10 @@ export const AmmoWheel = forwardRef<AmmoWheelHandle, Props>(function AmmoWheel(
           };
           cb.current.onSpin?.();
           dirty = true;
+          // The loop parks itself when the canvas is off screen. Without this
+          // a spin started from a stage that is not in view never advances and
+          // the promise never settles.
+          loop?.wake();
         }),
     };
 
@@ -413,14 +468,36 @@ export const AmmoWheel = forwardRef<AmmoWheelHandle, Props>(function AmmoWheel(
       if (running()) {
         t = Math.min(SPIN_S, t + dt * speed);
         const u = clamp01(t / SPIN_S);
-        wheel.rotation.z = from + (to - from) * spinEase(u);
+        let theta = from + (to - from) * spinEase(u);
+
+        /*
+         * Settling.
+         *
+         * A wheel does not glide to a halt on its mark. The last few pegs
+         * catch the pawl, the wheel is pushed back off each one, and it rocks
+         * into the pocket. This is a damped rock scaled to one wedge, ending
+         * at exactly zero so the landing angle is still exact — the wobble is
+         * all in the approach, never in the answer.
+         */
+        const s = clamp01((t - (SPIN_S - SETTLE_S)) / SETTLE_S);
+        if (s > 0 && count > 0) {
+          const wedge = (Math.PI * 2) / count;
+          const decay = (1 - s) * (1 - s);
+          theta += Math.sin(s * Math.PI * 3.2) * decay * wedge * SETTLE_AMP;
+        }
+        wheel.rotation.z = theta;
 
         // One tick per wedge passing the pawl, at the speed it passed.
         if (count > 0) {
           const step = (Math.PI * 2) / count;
           const w = Math.floor(wheel.rotation.z / step);
           if (w !== lastWedge) {
-            if (lastWedge !== -1) cb.current.onTick?.(1 - u);
+            if (lastWedge !== -1) {
+              cb.current.onTick?.(1 - u);
+              // Each peg shoves the pawl aside; it springs back between them.
+              // Harder early on, when the pegs are arriving fast.
+              kick = 0.16 + 0.3 * (1 - u);
+            }
             lastWedge = w;
           }
         }
@@ -432,6 +509,13 @@ export const AmmoWheel = forwardRef<AmmoWheelHandle, Props>(function AmmoWheel(
           t = -1;
           done?.();
         }
+      }
+
+      if (kick !== 0) {
+        kick *= Math.max(0, 1 - dt * 9);
+        if (Math.abs(kick) < 0.001) kick = 0;
+        pawl.rotation.z = kick;
+        dirty = true;
       }
 
       if (running() || dirty) {

@@ -360,6 +360,7 @@ export const CapsuleMachine = forwardRef<CapsuleHandle, Props>(function CapsuleM
     const cool = new THREE.PointLight(0x5f8dff, 34, 30, 2);
     cool.position.set(-4, 3, -4);
     scene.add(cool);
+
     /** Fires inside the capsule as it splits. Dark until then. */
     const burst = new THREE.PointLight(0x0ff796, 0, 9, 2);
     scene.add(burst);
@@ -369,6 +370,36 @@ export const CapsuleMachine = forwardRef<CapsuleHandle, Props>(function CapsuleM
       trash.push(x);
       return x;
     };
+
+    /* ------------------------------------------------------------ table */
+    /**
+     * The same green baize the dice tray and the card fan stand on.
+     *
+     * Not decoration: without it this stage was a machine floating in a black
+     * void while every other canvas was a table in a room, and the set read as
+     * two different places. The felt and the light rig above are shared, so
+     * they read as one.
+     */
+    // A round table, the same as the card fan's: green baize inside a turned
+    // mahogany rail. The camera looks down at 46 degrees, so the far side of
+    // the rail rides high in the frame — the table has to be a good deal wider
+    // than the machine or its edge cuts straight across the globe.
+    const felt = new THREE.Mesh(
+      keep(new THREE.CylinderGeometry(12.4, 12.4, 0.3, 72)),
+      keep(new THREE.MeshStandardMaterial({ color: 0x16342a, roughness: 0.94, metalness: 0.02 })),
+    );
+    felt.position.y = -0.35;
+    felt.receiveShadow = true;
+    scene.add(felt);
+
+    const rail = new THREE.Mesh(
+      keep(new THREE.TorusGeometry(12.5, 0.4, 16, 96)),
+      keep(new THREE.MeshStandardMaterial({ color: 0x3b2717, roughness: 0.55, metalness: 0.3 })),
+    );
+    rail.rotation.x = Math.PI / 2;
+    rail.position.y = -0.24;
+    scene.add(rail);
+
 
     /* ------------------------------------------------------------ machine */
     const metal = keep(

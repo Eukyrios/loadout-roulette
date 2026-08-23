@@ -1,4 +1,5 @@
 import { forwardRef, useCallback, useEffect, useRef, useState } from 'react';
+import { DependencyChip, type DependencyOption } from './DependencyChip';
 import { SlotReel } from './SlotReel';
 import { SLOTS } from '../data/slots';
 import type { Entry, Roll } from '../data/types';
@@ -26,6 +27,9 @@ interface Props {
   onTick: () => void;
   onPull: () => void;
   anySpinning: boolean;
+  /** Difficulties that can be set by hand from the crown readout. */
+  modeOptions: DependencyOption[];
+  onPickMode: (id: string) => void;
 }
 
 /**
@@ -48,6 +52,8 @@ export const SlotMachine = forwardRef<HTMLDivElement, Props>(function SlotMachin
     onTick,
     onPull,
     anySpinning,
+    modeOptions,
+    onPickMode,
   },
   coinSlotRef,
 ) {
@@ -201,7 +207,7 @@ export const SlotMachine = forwardRef<HTMLDivElement, Props>(function SlotMachin
   const armStyle = { transform: `scaleY(${1 - pull * 0.55})` };
   const knobStyle = { transform: `translateY(${pull * LEVER_TRAVEL}px)` };
 
-  const tone = creditMode?.attrs?.color ?? 'none';
+  const tone = String(creditMode?.attrs?.color ?? 'none');
 
   return (
     <div className="machine">
@@ -215,12 +221,15 @@ export const SlotMachine = forwardRef<HTMLDivElement, Props>(function SlotMachin
             <span className="machine__mode-label">Preset</span>
             <span className="machine__mode-value">{preset}</span>
           </div>
-          <div className={`machine__mode machine__mode--${tone}`}>
-            <span className="machine__mode-label">Difficulty</span>
-            <span className="machine__mode-value">
-              {creditMode ? creditMode.name : 'No token'}
-            </span>
-          </div>
+          {/* Readable as before, but now also settable: you can start here
+              instead of at the roulette wheel. */}
+          <DependencyChip
+            label="Difficulty"
+            value={creditMode ? creditMode.name : null}
+            options={modeOptions}
+            onPick={onPickMode}
+            tone={tone}
+          />
         </div>
       </div>
 

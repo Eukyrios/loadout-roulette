@@ -1,13 +1,17 @@
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Coin } from './components/Coin';
+import { DependencyChip, type DependencyOption } from './components/DependencyChip';
 import { SettingsPanel } from './components/SettingsPanel';
 import { SlotMachine } from './components/SlotMachine';
 import {
   ATTACHMENT_COST_FACES,
   LOADOUT_COST_FACES,
   MAX_KEYS,
+  MAPS,
   MODES,
   MODE_BY_ID,
+  WEAPONS,
+  WEAPON_BY_ID,
   SQUAD_BY_ID,
   STICK_BUNDLE,
   WHEEL_POCKETS,
@@ -15,7 +19,13 @@ import {
   keycardsFor,
 } from './data/deltaforce';
 import { ATTACH_BY_CAT, ATTACH_SLOTS, type Attachment } from './data/attachments';
-import { AMMO_WITH_ART, type Ammo, ammoImageSrc } from './data/ammo';
+import {
+  AMMO_BY_CALIBER,
+  AMMO_WITH_ART,
+  WEAPON_CALIBER,
+  type Ammo,
+  ammoImageSrc,
+} from './data/ammo';
 import { CHANGELOG } from './data/changelog';
 import { TIER_NAME, ammoTier } from './data/rarity';
 import { SLOTS } from './data/slots';
@@ -65,8 +75,13 @@ const DART_WEDGES = 6;
  *
  * Seeded off the spin count, so a shared link deals the same wheel.
  */
-function dealWheel(seed: string, spin: number): Ammo[] {
-  const rng = mulberry32(hashString(`${seed}:ammowheel:${spin}`));
+function dealWheel(seed: string, spin: number, caliber: string | null): Ammo[] {
+  const rng = mulberry32(hashString(`${seed}:ammowheel:${caliber ?? 'any'}:${spin}`));
+  // With a caliber in force the wheel is that caliber's own ladder — spin it
+  // and you are choosing which grade of the round you are already committed
+  // to. Without one it is a lucky dip across everything.
+  const inCal = caliber ? (AMMO_BY_CALIBER[caliber] ?? []).filter((a) => a.hasArt) : [];
+  if (inCal.length > 0) return inCal.slice(0, DART_WEDGES);
   const pool = [...AMMO_WITH_ART];
   for (let i = pool.length - 1; i > 0; i--) {
     const j = Math.floor(rng() * (i + 1));
@@ -158,11 +173,22 @@ export default function App() {
   // --- ammunition, picked by spinning the wheel ----------------------------
   const [ammo, setAmmo] = useState<Ammo | null>(null);
   const [dartBusy, setDartBusy] = useState(false);
-  const [rounds, setRounds] = useState<Ammo[]>(() => dealWheel(seed, 0));
+  const [rounds, setRounds] = useState<Ammo[]>(() => dealWheel(seed, 0, null));
 
   // --- squad size, drawn from the stick cup --------------------------------
   const [squad, setSquad] = useState<Entry | null>(null);
   const [stickBusy, setStickBusy] = useState(false);
+
+  /**
+   * Hand-set dependencies.
+   *
+   * Each stage that needs an earlier result reads its override first and the
+   * rolled value second, so the stages do not have to be played in order. Null
+   * means "use whatever was rolled".
+   */
+  const [pickedMap, setPickedMap] = useState<string | null>(null);
+  const [pickedWeapon, setPickedWeapon] = useState<string | null>(null);
+  const [pickedCaliber, setPickedCaliber] = useState<string | null>(null);
 
   const [panelOpen, setPanelOpen] = useState(false);
 
@@ -465,7 +491,8 @@ export default function App() {
 
   // The deck is whatever the ROLLED map's locked rooms are, so there is nothing
   // to draw from until stage two has landed a map.
-  const mapId = rolls.map?.entry?.id ?? null;
+  const rolledMap = rolls.map?.entry?.id ?? null;
+  const mapId = pickedMap ?? rolledMap;
   const deck = useMemo(() => keycardsFor(mapId), [mapId]);
   const drawnKeys = useMemo(() => keys.map((i) => deck[i]).filter(Boolean), [deck, keys]);
   // Five is the ceiling, but a map documented as running generic tiered access
@@ -508,7 +535,8 @@ export default function App() {
 
   /* --- the capsule machine ------------------------------------------------ */
 
-  const weapon = rolls.weapon?.entry ?? null;
+  const rolledWeapon = rolls.weapon?.entry ?? null;
+  const weapon = (pickedWeapon ? WEAPON_BY_ID[pickedWeapon] : null) ?? rolledWeapon;
   /** Five slots' worth. Fit is deliberately ignored — see CapsuleMachine. */
   const CAPSULE_SIZE = 5;
 
@@ -536,6 +564,40 @@ export default function App() {
     setCapsuleBusy(false);
   }, [capsuleBusy, seed, spins, weapon]);
 
+  /* --- what each stage is working from ------------------------------------- */
+
+  const mapOptions = useMemo<DependencyOption[]>(
+    () => MAPS.map((m) => ({ id: m.id, name: m.name, note: m.note })),
+    [],
+  );
+  const weaponOptions = useMemo<DependencyOption[]>(
+    () => WEAPONS.map((w) => ({ id: w.id, name: w.name, note: String(w.attrs?.class ?? '') })),
+    [],
+  );
+  const modeOptions = useMemo<DependencyOption[]>(
+    () => MODES.map((m) => ({ id: m.id, name: m.name, note: m.note })),
+    [],
+  );
+  const caliberOptions = useMemo<DependencyOption[]>(
+    () =>
+      Object.keys(AMMO_BY_CALIBER)
+        .sort()
+        .map((c) => ({
+          id: c,
+          name: c,
+          note: `${AMMO_BY_CALIBER[c].length} rounds`,
+        })),
+    [],
+  );
+
+  /**
+   * The caliber the wheel is loaded with.
+   *
+   * Hand-set first, then whatever the rolled gun chambers. Null means no
+   * caliber is in force and the wheel deals from the whole catalogue.
+   */
+  const caliber = pickedCaliber ?? (weapon ? (WEAPON_CALIBER[weapon.id] ?? null) : null);
+
   /* --- the ammunition wheel ------------------------------------------------ */
 
   const spinAmmo = useCallback(async () => {
@@ -547,7 +609,7 @@ export default function App() {
     // finished. Redealing on landing wiped the winner off the wheel the
     // instant it was decided, which made the result look like it had not
     // happened.
-    const next = dealWheel(seed, n);
+    const next = dealWheel(seed, n, caliber);
     setRounds(next);
     dartRef.current?.setRounds(next);
 
@@ -557,13 +619,20 @@ export default function App() {
     setAmmo(next[idx] ?? null);
     setSpins((p) => ({ ...p, __dart: n }));
     setDartBusy(false);
-  }, [dartBusy, seed, spins]);
+  }, [dartBusy, seed, spins, caliber]);
 
-  // The opening wheel, once. Everything after that is driven by the spin.
+  /**
+   * Redeal whenever the caliber in force changes — including on first paint.
+   *
+   * Nothing else redeals: a spin deals its own wheel as it starts, because
+   * dealing on landing wiped the winner off the instant it was decided.
+   */
   useEffect(() => {
-    dartRef.current?.setRounds(rounds);
+    const next = dealWheel(seed, spins.__dart ?? 0, caliber);
+    setRounds(next);
+    dartRef.current?.setRounds(next);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [caliber, seed]);
 
   const drawStick = useCallback(async () => {
     if (stickBusy) return;
@@ -693,6 +762,16 @@ export default function App() {
 
         <SlotMachine
           ref={coinSlotRef}
+          modeOptions={modeOptions}
+          onPickMode={(id: string) => {
+            const m = MODE_BY_ID[id];
+            if (!m) return;
+            setMode(m);
+            setCreditMode(m);
+            // A hand-set difficulty has to come with a token, or the lever
+            // stays locked and the chip looks like it did nothing.
+            setCredits((c) => Math.max(1, c));
+          }}
           rolls={rolls}
           pools={pools}
           spinning={spinning}
@@ -772,10 +851,20 @@ export default function App() {
         <div className="stage__side">
           <SectionTitle>4 · Crank for attachments</SectionTitle>
 
+          <DependencyChip
+            label="Weapon"
+            value={weapon?.name ?? null}
+            options={weaponOptions}
+            onPick={setPickedWeapon}
+            onClear={pickedWeapon ? () => setPickedWeapon(null) : undefined}
+            source={pickedWeapon ? 'manual' : rolledWeapon ? 'rolled' : null}
+            side
+          />
+
           <div className="caps">
             <div className="caps__head">
               <span className="caps__label">In the capsule</span>
-              <span className="caps__for">{weapon ? weapon.name : 'No weapon'}</span>
+              <span className="caps__for">{attachments.length} parts</span>
             </div>
 
             {attachments.length > 0 ? (
@@ -790,7 +879,7 @@ export default function App() {
               </ul>
             ) : (
               <p className="caps__empty">
-                {weapon ? 'Nothing dispensed yet' : 'Roll a weapon in stage 2 first'}
+                {weapon ? 'Nothing dispensed yet' : 'Roll a weapon, or name one above'}
               </p>
             )}
           </div>
@@ -808,7 +897,7 @@ export default function App() {
             className="btn btn--primary"
             onClick={() => void turnCrank()}
             disabled={capsuleBusy || !weapon}
-            title={weapon ? 'Shake the globe and drop a capsule' : 'Roll a weapon in stage 2 first'}
+            title={weapon ? 'Shake the globe and drop a capsule' : 'Roll a weapon, or name one above'}
           >
             {capsuleBusy ? 'Dispensing…' : 'Turn the crank'}
           </button>
@@ -831,6 +920,16 @@ export default function App() {
 
           <div className="stage__side">
             <SectionTitle>5 · Spin for ammunition</SectionTitle>
+
+            <DependencyChip
+              label="Caliber"
+              value={caliber}
+              options={caliberOptions}
+              onPick={setPickedCaliber}
+              onClear={pickedCaliber ? () => setPickedCaliber(null) : undefined}
+              source={pickedCaliber ? 'manual' : caliber ? 'rolled' : null}
+              side
+            />
 
             <div className="dart">
               <div className="dart__head">
@@ -914,6 +1013,16 @@ export default function App() {
         <div className="stage__side">
           <SectionTitle>6 · Draw your keycards</SectionTitle>
 
+          <DependencyChip
+            label="Map"
+            value={mapId ? (MAPS.find((m) => m.id === mapId)?.name ?? mapId) : null}
+            options={mapOptions}
+            onPick={setPickedMap}
+            onClear={pickedMap ? () => setPickedMap(null) : undefined}
+            source={pickedMap ? 'manual' : rolledMap ? 'rolled' : null}
+            side
+          />
+
           <div className="keys">
             <div className="keys__head">
               <span className="keys__label">Keycards in hand</span>
@@ -939,7 +1048,7 @@ export default function App() {
               </ol>
             ) : (
               <p className="keys__empty">
-                {mapId ? 'Nothing drawn yet' : 'Roll a map in stage 2 first'}
+                {mapId ? 'Nothing drawn yet' : 'Roll a map, or name one above'}
               </p>
             )}
           </div>
@@ -947,7 +1056,7 @@ export default function App() {
           <p className="stage__hint">
             {mapId
               ? 'Face-down, so you take the card before you know the door. Whatever comes out is what you go in for.'
-              : 'The deck is the locked rooms on the map you rolled — there is nothing to draw from until stage 2 lands one.'}
+              : 'The deck is the locked rooms on a map. Roll one in stage 2, or name one in the box above.'}
           </p>
 
           <div className="keys__actions">
@@ -958,7 +1067,7 @@ export default function App() {
               disabled={keyBusy || !mapId || keys.length >= keyLimit}
               title={
                 !mapId
-                  ? 'Roll a map in stage 2 first'
+                  ? 'Roll a map, or name one above'
                   : keys.length >= keyLimit
                     ? 'That is the whole hand'
                     : 'Take a keycard off the fan'

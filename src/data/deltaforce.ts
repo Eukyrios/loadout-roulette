@@ -296,6 +296,11 @@ export const WEAPONS: Entry[] = [
   w('m1911', 'M1911', 'Pistol'),
 ];
 
+/** Weapon lookup by id, for the stages that let you name one by hand. */
+export const WEAPON_BY_ID: Record<string, Entry> = Object.fromEntries(
+  WEAPONS.map((w) => [w.id, w]),
+);
+
 /* -------------------------------------------------------------------------- */
 /*  Armor & carry gear                                                         */
 /* -------------------------------------------------------------------------- */
