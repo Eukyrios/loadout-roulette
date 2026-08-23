@@ -19,6 +19,16 @@ export interface LogEntry {
 
 export const CHANGELOG: LogEntry[] = [
   {
+    title: 'A length control, and a longer default',
+    notes: [
+      'The bottom bar has a Length slider beside the volume: 0.5x to 5x, remembered across visits, greyed out when animation is off because there is nothing left to stretch. It multiplies TIME, so higher is longer, not faster.',
+      'Everything runs at 2.5x its written length by default. A reel used to be over almost as it started; a roll is worth more when you have to wait for it. Drag it down to 0.5x for a quick one.',
+      'A longer setting is more items flying past, not the same handful crawling \u2014 the strip travels further to fill the extra time, so its own pace holds at roughly the same speed whatever the slider says.',
+      'Rarity multiplies on top and is back to a clean three: a red reel runs three times a gray and travels three times as far, at every setting. That had quietly stopped showing, because the strip length was worked out AFTER the speed was applied and kept bottoming out on its floor \u2014 so a red and a gray covered identical ground and the red merely crawled.',
+      'Four stages ignored the slider until a reload \u2014 the roulette wheel, the dice, the keycards and the stick cup each measured their length once when their scene was built, and a scene is built once for the life of the page. They read it as each sequence starts now.',
+    ],
+  },
+  {
     title: 'Every weapon has its picture',
     notes: [
       'All 66 guns now show their own artwork, cut from item cards. So does the Nylon Chest Rig, which was not in the catalogue at all \u2014 and the .357 Revolver, whose download had quietly failed months ago.',

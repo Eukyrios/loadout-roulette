@@ -18,8 +18,17 @@ export const CELL = 76;
  * The divisor is set so a base-length spin still yields the 22 cells this used
  * to hardcode.
  */
-const fillersFor = (duration: number) =>
-  Math.max(10, Math.min(96, Math.round(duration / 68)));
+const fillersFor = (ms: number) => Math.max(10, Math.min(FILLER_MAX, Math.round(ms / 68)));
+
+/**
+ * Ceiling on the strip length.
+ *
+ * It has to clear the longest run the controls allow — a red at 5x is 10.5
+ * seconds, which wants about 154 cells to keep the same scroll pace. Set it
+ * lower and the longest spins stop travelling further and start travelling
+ * slower, which reads as the machine bogging down rather than teasing.
+ */
+const FILLER_MAX = 170;
 /** How long a single-step nudge takes to slide one cell. */
 const NUDGE_MS = 190;
 
@@ -320,6 +329,15 @@ export function SlotReel({
     }
 
     const prev = strip[1] ?? entry;
+    /*
+     * Travel follows the clock, so the strip's own speed stays put.
+     *
+     * `duration` already carries both rarity and the length setting, and the
+     * filler count is derived straight from it — so a longer setting is more
+     * items flying past at the same pace, not the same handful crawling. A red
+     * runs three times a gray at every setting and travels three times as far
+     * for it, which is the difference you are meant to see.
+     */
     const fillers = fillersFor(duration);
     /*
      * The three cells the reel STOPS on are the real ones, not fillers.

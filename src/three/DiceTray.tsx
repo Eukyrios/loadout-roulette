@@ -215,7 +215,16 @@ export const DiceTray = forwardRef<DiceHandle, Props>(function DiceTray(
     if (!mount) return;
 
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    const duration = animMs(reduced ? 700 : ROLL_MS);
+    /*
+     * Re-read on every run, not captured at mount.
+     *
+     * The speed control is a live setting: the scene is built once and lives
+     * for the life of the page, so a length taken here and kept would pin the
+     * stage to whatever the slider said the first time it rendered. Reading it
+     * as each sequence starts means the control works without a reload, and
+     * the value still holds steady for the run it governs.
+     */
+    let duration = animMs(reduced ? 700 : ROLL_MS);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -374,6 +383,7 @@ export const DiceTray = forwardRef<DiceHandle, Props>(function DiceTray(
     api.current = {
       roll: (a: number, b: number) =>
         new Promise<void>((resolve) => {
+          duration = animMs(reduced ? 700 : ROLL_MS);
           const values = [a, b];
           states.forEach((s, i) => {
             s.captured = null;

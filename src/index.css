@@ -2526,6 +2526,11 @@ body {
   cursor: not-allowed;
 }
 
+/* The length readout is "2.5x", a character wider than the volume's "85". */
+.bar__vol:has([aria-label='Animation length']) .bar__volValue {
+  min-width: 3.4ch;
+}
+
 .bar__volValue {
   min-width: 2.2ch;
   font-family: var(--mono);

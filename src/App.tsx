@@ -99,7 +99,7 @@ function dealWheel(seed: string, spin: number, caliber: string | null): Ammo[] {
 const SPIN_BASE = 700;
 
 /**
- * How much longer a Tier 6 spins than a Tier 1.
+ * How much longer a red spins than a gray. Three times, exactly.
  *
  * Rarity multiplies the spin rather than adding to it, so the ratio is exact
  * and identical for every column. An earlier version added a flat bonus on top
@@ -110,7 +110,7 @@ const SPIN_BASE = 700;
  * stretch a spin freely: order is guaranteed by the queue, not by the clock, so
  * a long spin can never overtake the column before it.
  */
-const RARITY_MAX = 2.5;
+const RARITY_MAX = 3;
 
 /** 1.0 at Tier 1, rising evenly to RARITY_MAX at Tier 6. */
 const rarityFactor = (tier: number) =>

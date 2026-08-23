@@ -491,7 +491,16 @@ export const RouletteWheel = forwardRef<RouletteHandle, Props>(function Roulette
     let ballStart = 0;
     let lastArc = -1;
     let resolveSpin: (() => void) | null = null;
-    const duration = animMs(reduced ? 1400 : SPIN_MS);
+    /*
+     * Re-read on every run, not captured at mount.
+     *
+     * The speed control is a live setting: the scene is built once and lives
+     * for the life of the page, so a length taken here and kept would pin the
+     * stage to whatever the slider said the first time it rendered. Reading it
+     * as each sequence starts means the control works without a reload, and
+     * the value still holds steady for the run it governs.
+     */
+    let duration = animMs(reduced ? 1400 : SPIN_MS);
 
     /**
      * Camera pose, 0 = laid back and wide, 1 = overhead and closed in on the
@@ -539,6 +548,7 @@ export const RouletteWheel = forwardRef<RouletteHandle, Props>(function Roulette
     api.current = {
       spin: (pocket: number) =>
         new Promise<void>((resolve) => {
+          duration = animMs(reduced ? 1400 : SPIN_MS);
           resolveSpin = resolve;
           // Always head back to the rolling pose first.
           camTarget = 0;

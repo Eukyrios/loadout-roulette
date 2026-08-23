@@ -236,7 +236,16 @@ export const CardFan = forwardRef<CardFanHandle, Props>(function CardFan(
     if (!mount) return;
 
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    const duration = animMs(reduced ? 420 : DRAW_MS);
+    /*
+     * Re-read on every run, not captured at mount.
+     *
+     * The speed control is a live setting: the scene is built once and lives
+     * for the life of the page, so a length taken here and kept would pin the
+     * stage to whatever the slider said the first time it rendered. Reading it
+     * as each sequence starts means the control works without a reload, and
+     * the value still holds steady for the run it governs.
+     */
+    let duration = animMs(reduced ? 420 : DRAW_MS);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -527,6 +536,7 @@ export const CardFan = forwardRef<CardFanHandle, Props>(function CardFan(
     api.current = {
       draw: (slot: number, label: string, last = false) =>
         new Promise<void>((resolve) => {
+          duration = animMs(reduced ? 420 : DRAW_MS);
           // Taken from anywhere in the spread, not off the end — you are
           // pulling a card out of a fan, not dealing off the top. Which one is
           // hashed from the key it carries rather than drawn from Math.random,

@@ -18,14 +18,30 @@ import { setAudioLevel } from './sound';
 export interface AppSettings {
   /** False plays every result out instantly instead of animating it. */
   animate: boolean;
+  /**
+   * How long everything plays for, as a multiple of its written length.
+   *
+   * A MULTIPLIER ON TIME, not on rate: 2 means twice as long, not twice as
+   * fast. The written lengths are brisk — a reel is over almost as it starts —
+   * and a roll is more fun when you have to wait for it, so the default runs
+   * everything longer than written. Below 1 for a quick roll, up to
+   * LENGTH_MAX for a drawn-out one.
+   *
+   * Rarity still multiplies on top: a red reel runs three times whatever this
+   * says, at every setting.
+   */
+  length: number;
   sound: boolean;
   /** 0 to 1. */
   volume: number;
 }
 
+export const LENGTH_MIN = 0.5;
+export const LENGTH_MAX = 5;
+
 const KEY = 'lr:settings';
 
-const DEFAULTS: AppSettings = { animate: true, sound: true, volume: 0.85 };
+const DEFAULTS: AppSettings = { animate: true, length: 2.5, sound: true, volume: 0.85 };
 
 function load(): AppSettings {
   if (typeof window === 'undefined') return DEFAULTS;
@@ -35,6 +51,10 @@ function load(): AppSettings {
     const got = JSON.parse(raw) as Partial<AppSettings>;
     return {
       animate: typeof got.animate === 'boolean' ? got.animate : DEFAULTS.animate,
+      length:
+        typeof got.length === 'number' && got.length >= LENGTH_MIN && got.length <= LENGTH_MAX
+          ? got.length
+          : DEFAULTS.length,
       sound: typeof got.sound === 'boolean' ? got.sound : DEFAULTS.sound,
       volume:
         typeof got.volume === 'number' && got.volume >= 0 && got.volume <= 1
@@ -87,9 +107,19 @@ const prefersReduced = () =>
  * order and every promise still settles. Short-circuiting them instead would
  * mean a second code path per stage and a second set of bugs.
  */
+function animLength(): number {
+  // Not zero and not a skip — see above. A sixtieth of the written length puts
+  // every sequence inside a frame while still running it end to end.
+  if (!state.animate) return 1 / 60;
+  // A system preference for less motion is a ceiling, not an override: it will
+  // not let a sequence run longer than the old reduced length, and it will not
+  // stretch a setting that is already shorter than that.
+  return prefersReduced() ? Math.min(state.length, 1 / 2.6) : state.length;
+}
+
+/** The same thing as a rate, for loops that advance by dt. */
 export function animSpeed(): number {
-  if (!state.animate) return 60;
-  return prefersReduced() ? 2.6 : 1;
+  return 1 / animLength();
 }
 
 /**
@@ -102,7 +132,7 @@ export function animSpeed(): number {
  * reads as instant, and every column still gets its own frames.
  */
 export function animMs(ms: number): number {
-  return Math.max(90, ms / animSpeed());
+  return Math.max(90, ms * animLength());
 }
 
 // The audio graph is built lazily, so push the stored level in at startup too.
