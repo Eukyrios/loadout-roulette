@@ -32,7 +32,7 @@ export const CHANGELOG: LogEntry[] = [
     title: 'Tighter stages, and a picture filter',
     notes: [
       'Every stage except the slot machine is about a third quicker at its written length \u2014 the reels were the one that read right, and the rest were pacing themselves against nothing. The wheel, the dice, the cards, the cup, the capsule machine and the ammunition wheel all came down together, so the slider still moves them all in step.',
-      'The Length slider starts at 2x now instead of 2.5x, for everyone. It briefly picked a shorter default on machines asking for less motion, which meant two people got different pacing out of the same build with nothing on screen to say why. The Animation switch beside it is the honest place for that.',
+      'The Length slider starts at 1x \u2014 every stage runs at exactly the length it was written for, and the written lengths were tuned to be right there. It briefly picked a shorter default on machines asking for less motion, which meant two people got different pacing out of the same build with nothing on screen to say why. The Animation switch beside it is the honest place for that.',
       'A filter in the machine settings: only deal items that have a picture. On by default \u2014 it costs 13 entries of 183, and a reel of nothing but artwork is worth that while the last of the gear waits for its item card. Turn it off to put the name-only cells back; they are a designed fallback, not damage.',
     ],
   },
@@ -40,7 +40,7 @@ export const CHANGELOG: LogEntry[] = [
     title: 'A length control, and a longer default',
     notes: [
       'The bottom bar has a Length slider beside the volume: 0.5x to 5x, remembered across visits, greyed out when animation is off because there is nothing left to stretch. It multiplies TIME, so higher is longer, not faster.',
-      'Everything runs at 2.5x its written length by default. A reel used to be over almost as it started; a roll is worth more when you have to wait for it. Drag it down to 0.5x for a quick one.',
+      'Drag it up for a longer, more drawn-out roll, or down to 0.5x for a quick one. It is remembered, so it is a one-time decision.',
       'A longer setting is more items flying past, not the same handful crawling \u2014 the strip travels further to fill the extra time, so its own pace holds at roughly the same speed whatever the slider says.',
       'Rarity multiplies on top and is back to a clean three: a red reel runs three times a gray and travels three times as far, at every setting. That had quietly stopped showing, because the strip length was worked out AFTER the speed was applied and kept bottoming out on its floor \u2014 so a red and a gray covered identical ground and the red merely crawled.',
       'Four stages ignored the slider until a reload \u2014 the roulette wheel, the dice, the keycards and the stick cup each measured their length once when their scene was built, and a scene is built once for the life of the page. They read it as each sequence starts now.',

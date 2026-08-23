@@ -22,10 +22,10 @@ export interface AppSettings {
    * How long everything plays for, as a multiple of its written length.
    *
    * A MULTIPLIER ON TIME, not on rate: 2 means twice as long, not twice as
-   * fast. The written lengths are brisk — a reel is over almost as it starts —
-   * and a roll is more fun when you have to wait for it, so the default runs
-   * everything longer than written. Below 1 for a quick roll, up to
-   * LENGTH_MAX for a drawn-out one.
+   * fast. It defaults to 1, so out of the box every stage runs at exactly the
+   * length it was written for — the written lengths were then tuned to be
+   * right at that setting, which is the only honest place for a default to
+   * sit. Below 1 for a quick roll, up to LENGTH_MAX for a drawn-out one.
    *
    * Rarity still multiplies on top: a red reel runs three times whatever this
    * says, at every setting.
@@ -41,7 +41,7 @@ export const LENGTH_MAX = 5;
 
 const KEY = 'lr:settings';
 
-const DEFAULTS: AppSettings = { animate: true, length: 2, sound: true, volume: 0.85 };
+const DEFAULTS: AppSettings = { animate: true, length: 1, sound: true, volume: 0.85 };
 
 function load(): AppSettings {
   if (typeof window === 'undefined') return DEFAULTS;
