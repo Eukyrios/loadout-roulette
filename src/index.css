@@ -117,6 +117,31 @@ body {
   color: var(--accent);
 }
 
+/* The data credit, beside the heading it belongs to. Quiet by default so it
+   does not compete with the step number.
+   Deliberately inline rather than a flex child: `.secttl__title` is shared with
+   the h1 wordmark, which has a <span> inside it, and turning the shared class
+   into a flex container would have re-spaced the wordmark as a side effect.
+   Inline also wraps to the next line on its own when the column is narrow. */
+.secttl__credit {
+  margin-left: 10px;
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  white-space: nowrap;
+}
+
+.secttl__credit:hover,
+.secttl__credit:focus-visible {
+  color: var(--accent);
+  border-bottom-color: var(--accent-dim);
+}
+
 .secttl__title--lg {
   font-size: 30px;
   letter-spacing: -0.02em;

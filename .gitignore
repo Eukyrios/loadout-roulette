@@ -31,3 +31,8 @@ _full.zip
 _to_delete/
 loadout-roulette/
 preview.png
+
+# Intermediate dump of the two tables weapon-smith does not own. Written by
+# `npx vite-node tools/dump-smith-data.ts`, which the sibling repo's
+# `npm run sync` calls; the TS files it reads are the source.
+tools/.smith/

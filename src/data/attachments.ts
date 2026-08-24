@@ -1,3 +1,12 @@
+/* -----------------------------------------------------------------------
+ * COPIED FROM weapon-smith. Do not edit here.
+ *
+ * The source of truth is ../weapon-smith/src/data/attachments.ts. Edit it there, then
+ * run `node tools/sync-attachment-data.mjs` in this repo. An edit made here is
+ * lost on the next sync, and worse, is invisible to the site generated from
+ * the original.
+ * ----------------------------------------------------------------------- */
+
 /**
  * Every attachment in the game, with its stat lines and price.
  *
@@ -5486,6 +5495,11 @@ export const ATTACHMENTS: Attachment[] = [
   hasArt: true,
  }
 ];
+
+/** By id, for anything that has to join against this list. */
+export const ATTACH_BY_ID: Record<string, Attachment> = Object.fromEntries(
+  ATTACHMENTS.map((a) => [a.id, a]),
+);
 
 export const ATTACH_BY_CAT: Record<string, Attachment[]> = ATTACHMENTS.reduce(
   (acc, a) => {

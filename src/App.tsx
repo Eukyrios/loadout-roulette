@@ -126,15 +126,35 @@ function seedFromUrl(): string | null {
   return s && /^[A-Z0-9]{4,16}$/i.test(s) ? s.toUpperCase() : null;
 }
 
+/** The sibling site that holds the attachment and ammunition data. */
+const WEAPON_SMITH = 'https://eukyrios.github.io/weapon-smith/';
+
 /**
  * Every section heading in the app is this shape: a small "Delta Force"
  * eyebrow above the title itself.
+ *
+ * `credit` adds the Weapon Smith link beside the title. It is a prop rather
+ * than something written into each heading so the URL lives in one place — two
+ * copies of it is one copy that gets left behind on the day it moves.
  */
-function SectionTitle({ children }: { children: ReactNode }) {
+function SectionTitle({ children, credit }: { children: ReactNode; credit?: boolean }) {
   return (
     <div className="secttl">
       <span className="secttl__eyebrow">Delta Force</span>
-      <h2 className="secttl__title">{children}</h2>
+      <h2 className="secttl__title">
+        {children}
+        {credit && (
+          <a
+            className="secttl__credit"
+            href={WEAPON_SMITH}
+            target="_blank"
+            rel="noopener noreferrer"
+            title="Weapon Smith — attachment and ammunition data (opens in a new tab)"
+          >
+            powered by Weapon Smith
+          </a>
+        )}
+      </h2>
     </div>
   );
 }
@@ -927,7 +947,7 @@ export default function App() {
         </div>
 
         <div className="stage__side">
-          <SectionTitle>4 · Crank for attachments</SectionTitle>
+          <SectionTitle credit>4 · Crank for attachments</SectionTitle>
 
           <DependencyChip
             label="Weapon"
@@ -996,7 +1016,7 @@ export default function App() {
           </div>
 
           <div className="stage__side">
-            <SectionTitle>5 · Spin for ammunition</SectionTitle>
+            <SectionTitle credit>5 · Spin for ammunition</SectionTitle>
 
             <DependencyChip
               label="Caliber"
@@ -1072,7 +1092,7 @@ export default function App() {
       ) : (
         <section className="stage stage--darts stage--barred">
           <div className="stage__side">
-            <SectionTitle>5 · Spin for ammunition</SectionTitle>
+            <SectionTitle credit>5 · Spin for ammunition</SectionTitle>
             <p className="wip wip--big">
               <strong className="wip__tag">Under construction</strong>
               The wheel that picks your ammunition is boarded up for now. Nothing else

@@ -290,6 +290,67 @@ export const AMMO: Ammo[] = [
   hasArt: true,
  },
  {
+  /*
+   * The four below were read off the RM277's own ammunition panel, not from a
+   * data source — so they carry a name and a caliber and nothing else. The
+   * card tint in that panel tracks penetration (the two rounds already here
+   * check out: FMJ purple at 4, Hybrid gold at 5), which puts PLY-I at blue,
+   * PLY-II purple, PLY-III gold and AP red. That is a reading of a colour, not
+   * a published number, so `pen` stays null until one is.
+   *
+   * THE COLOUR AND THE NUMBER ARE ONE SCALE — CHECKED
+   *
+   * The external market listing carries an "Item Level" per round, and that
+   * level is this same field: eighteen rounds appear in both places and all
+   * eighteen agree, none disagreeing. So a round's tier and its penetration are
+   * not two facts that happen to correlate, they are the same fact shown two
+   * ways, and reading the tint really is reading the level.
+   *
+   * It still does not settle these four. That listing has three pages and none
+   * of them carries a PLY round or the 6.8x51mm AP — they arrived with the
+   * RM277 and the market data has not caught up. What the check buys is
+   * confidence in the method, not the values, so `pen` stays null.
+   */
+  id: "6-8x51mm-ply-i",
+  name: "6.8x51mm PLY-I",
+  caliber: "6.8x51mm",
+  pen: null,
+  price: null,
+  low: null,
+  high: null,
+  hasArt: false,
+ },
+ {
+  id: "6-8x51mm-ply-ii",
+  name: "6.8x51mm PLY-II",
+  caliber: "6.8x51mm",
+  pen: null,
+  price: null,
+  low: null,
+  high: null,
+  hasArt: false,
+ },
+ {
+  id: "6-8x51mm-ply-iii",
+  name: "6.8x51mm PLY-III",
+  caliber: "6.8x51mm",
+  pen: null,
+  price: null,
+  low: null,
+  high: null,
+  hasArt: false,
+ },
+ {
+  id: "6-8x51mm-ap",
+  name: "6.8x51mm AP",
+  caliber: "6.8x51mm",
+  pen: null,
+  price: null,
+  low: null,
+  high: null,
+  hasArt: false,
+ },
+ {
   id: "6-8x51mm-hybrid",
   name: "6.8x51mm Hybrid",
   caliber: "6.8x51mm",
